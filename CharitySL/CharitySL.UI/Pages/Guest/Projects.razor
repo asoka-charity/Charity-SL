@@ -1,0 +1,54 @@
+﻿@page "/projects"
+
+<MudTabs Centered>
+    <MudTabPanel Icon="@Icons.Material.Filled.HistoryEdu" BadgeData='string.Empty' BadgeDot="true"
+                 BadgeColor="Color.Success" ToolTip="Children in a rural school receiving supplies" Style="background: #d3d3d34f">
+        <MudCard Style="background: #d3d3d34f">
+            <MudCardMedia Image="./assets/img/1.jpg" Height="400"
+                          Class="img-fluid rounded mb-3" Style="margin:14px" />
+            <MudCardContent>
+                <MudText Typo="Typo.h5" Class="mb-2">Providing Educational Resources to Rural Schools</MudText>
+                <MudText Typo="Typo.body1">
+                    Education is a fundamental right, yet many rural schools struggle with inadequate resources.
+                    Our initiative provides books, stationery, and technology to underprivileged schools,
+                    ensuring students have the tools they need for a brighter future.
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudTabPanel>
+    <MudTabPanel Icon="@Icons.Material.Filled.LocalHospital" BadgeDot="true" BadgeColor="Color.Info" ToolTip="Medical staff receiving essential supplies" Style="background: #d3d3d34f">
+        <MudCard Style="background: #d3d3d34f">
+            <MudCardMedia Image="./assets/img/2.jpg" Height="800"
+                          Class="img-fluid rounded mb-3" Style="margin:14px" />
+            <MudCardContent>
+                <MudText Typo="Typo.h5" Class="mb-2">Supporting Local Hospitals with Medical Supplies</MudText>
+                <MudText Typo="Typo.body1">
+                    Access to healthcare is crucial, and many local hospitals face shortages of essential medical supplies.
+                    Through generous contributions, we provide hospitals with necessary equipment and medicines,
+                    helping improve patient care and save lives.
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudTabPanel>
+    <MudTabPanel BadgeDot="true" BadgeColor="Color.Error" Icon="@Icons.Material.Filled.Campaign" ToolTip="Help Sri Lanka" Style="background: #d3d3d34f">
+        <MudCard Style="background: #d3d3d34f">
+            <MudCardMedia Image="./assets/img/image_2805594d76.jpg" Height="550"
+                          Class="img-fluid rounded mb-3" Style="margin:14px" />
+            <MudCardContent>
+                <MudText Typo="Typo.h5" Class="mb-2">Help Sri Lanka</MudText>
+                <MudText Typo="Typo.body1">
+                    Education is a fundamental right, yet many rural schools struggle with inadequate resources.
+                    Our initiative provides books, stationery, and technology to underprivileged schools,
+                    ensuring students have the tools they need for a brighter future.
+                </MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudTabPanel>
+</MudTabs>
+
+
+<style>
+    .mud-tabs-tabbar {
+        background: #d3d3d34f
+    }
+</style>

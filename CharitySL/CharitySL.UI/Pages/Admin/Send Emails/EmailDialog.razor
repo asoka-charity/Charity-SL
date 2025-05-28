@@ -1,0 +1,248 @@
+﻿@inject IConfiguration Configuration
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog DefaultFocus="DefaultFocus.LastChild" Style="width:600px; height:700px; background: #d3d3d3">
+    <TitleContent>
+        <MudText Typo="Typo.h5">Send Email</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudRadioGroup T="string" @bind-Value="selectedMode" Orientation="Orientation.Horizontal" Class="mt-4">
+            <MudRadio T="string" Value="@("select")" Label="Select Existing Template" />
+            <MudRadio T="string" Value="@("create")" Label="Create New Template" />
+        </MudRadioGroup>
+
+        @if (selectedMode == "select")
+        {
+            @if (templates == null)
+            {
+                <MudText Typo="Typo.body1">Loading templates...</MudText>
+            }
+            else
+            {
+                <MudSelect T="string" @bind-Value="_selectedTemplate"
+                Label="Select an email template" SelectedValuesChanged="OnTemplateSelected">
+                    @foreach (var template in templates)
+                    {
+                        <MudSelectItem Value="template">@template</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (!string.IsNullOrEmpty(selectedTemplateContent))
+                {
+                    <MudText Typo="Typo.h6" Class="mt-4">Preview</MudText>
+                    <MudPaper Class="p-3" Style="background: #d1cece; height: 500px">
+                        <iframe srcdoc="@selectedTemplateContent" style="border: none;"></iframe>
+                    </MudPaper>
+                }
+            }
+        }
+
+        @if (selectedMode == "create")
+        {
+            <MudTextField T="string" Label="Subject" @bind-Value="customSubject" FullWidth="true" Class="mt-4" />
+            <MudTextField T="string" Label="Body" @bind-Value="customBody" FullWidth="true" AutoGrow Lines="10" Class="mt-4" />
+            
+            <MudStack Style="width: 100%">
+                <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                               @ref="@_fileUpload"
+                               OnFilesChanged="OnInputFileChanged"
+                               AppendMultipleFiles
+                               Hidden="@false"
+                               InputClass="absolute mud-width-full mud-height-full overflow-hidden z-10"
+                               InputStyle="opacity:0"
+                               tabindex="-1"
+                               @ondrop="@ClearDragClass"
+                               @ondragenter="@SetDragClass"
+                               @ondragleave="@ClearDragClass"
+                               @ondragend="@ClearDragClass">
+                    <ActivatorContent>
+                        <MudPaper Height="150px"
+                                  Outlined="true"
+                                  Class="@_dragClass"
+                                  Style="background: #d3d3d3">
+                            <MudText>
+                                Drag and drop files here or click
+                            </MudText>
+                            @foreach (var file in _fileNames)
+                            {
+                                <MudChip T="string"
+                                         Color="Color.Success"
+                                         Text="@file"
+                                         tabindex="-1" />
+                            }
+                        </MudPaper>
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudToolBar Gutters="@false"
+                            Class="relative d-flex justify-end gap-4">
+                    <MudButton Color="Color.Error"
+                               Disabled="@(!_fileNames.Any() || isEmailSending)"
+                               OnClick="@ClearAsync"
+                               Variant="Variant.Filled">
+                        Clear
+                    </MudButton>
+                </MudToolBar>
+            </MudStack>
+
+            @if (_files != null && _files.Count > 0)
+            {
+                <MudText Typo="@Typo.body2">@_files.Count() File@(_files.Count() == 1 ? "" : "s"):</MudText>
+                <MudList T="string">
+                    @foreach (var file in _files)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.AttachFile" @key="@file">
+                            @file.Name
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="CancelClick" Disabled="@isEmailSending" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SendEmails" StartIcon="@Icons.Material.Filled.Send" Disabled="@isEmailSending">Send</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code{
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public IReadOnlyCollection<string> selectedEmails { get; set; } = [];
+
+    private List<string>? templates;
+    private string _selectedTemplate = string.Empty;
+    private string? selectedTemplateContent = string.Empty;
+    private string selectedMode = "create"; // Default mode
+    private string customSubject = string.Empty;
+    private string customBody = string.Empty;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private string errorMessage = null;
+    private bool isEmailSending = false;
+    IList<IBrowserFile> _files = new List<IBrowserFile>();
+    private List<EmailAttachment> attachments = new();
+    private const string DefaultDragClass = "relative rounded-lg border-2 border-dashed pa-4 mt-4 mud-width-full mud-height-full";
+    private string _dragClass = DefaultDragClass;
+    private readonly List<string> _fileNames = new();
+    private MudFileUpload<IReadOnlyList<IBrowserFile>>? _fileUpload;
+
+    protected override async Task OnInitializedAsync()
+    {
+        templates = await Http.GetFromJsonAsync<List<string>>($"{WebApiAddress}/api/email/template/list");
+    }
+
+    private async Task OnTemplateSelected()
+    {
+        if (string.IsNullOrEmpty(_selectedTemplate))
+        {
+            selectedTemplateContent = null; // Clear preview
+        }
+        else
+        {
+            selectedTemplateContent = await Http.GetStringAsync($"{WebApiAddress}/api/email/template/{_selectedTemplate}");
+        }
+    }
+
+    private async Task SendEmails()
+    {
+        isEmailSending = true;
+        if (selectedEmails == null || !selectedEmails.Any())
+        {
+            errorMessage = "Please select at least one recipient";
+            Snackbar.Add(errorMessage, Severity.Error);
+            isEmailSending = false;
+            return;
+        }
+
+        if (selectedMode == "create" && customBody == string.Empty)
+        {
+            errorMessage = "Please add the email body";
+            Snackbar.Add(errorMessage, Severity.Error);
+            isEmailSending = false;
+            return;
+        }
+
+        if (selectedMode == "select" && _selectedTemplate == string.Empty)
+        {
+            errorMessage = "Please select a template";
+            Snackbar.Add(errorMessage, Severity.Error);
+            isEmailSending = false;
+            return;
+        }
+
+        errorMessage = null;
+
+        var emailRequest = new
+        {
+            Recipients = selectedEmails,
+            Subject = selectedMode == "create" ? customSubject : "Selected Template",
+            Body = selectedMode == "create" ? customBody.Replace("\n", "<br>") : selectedTemplateContent,
+            TemplateName = selectedMode == "create" ? "" : _selectedTemplate,
+            Attachments = attachments
+        };
+
+        var response = await Http.PostAsJsonAsync($"{WebApiAddress}/api/email/send", emailRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Email sent successfully", Severity.Success);
+            MudDialog.Close();
+        }
+        else
+        {
+            var errorResponse = await response.Content.ReadAsStringAsync();
+            Snackbar.Add($"Error sending email: {errorResponse}", Severity.Error);
+        }
+        isEmailSending = false;
+    }
+
+    private void OnSelectionChanged(ChangeEventArgs e)
+    {
+        ClearValues();
+        selectedMode = e.Value?.ToString();
+    }
+
+    private void ClearValues()
+    {
+        _selectedTemplate = string.Empty;
+        selectedTemplateContent = string.Empty;
+        customSubject = string.Empty;
+        customBody = string.Empty;
+        attachments.Clear();
+        _fileNames.Clear();
+    }
+
+    private void CancelClick() => MudDialog.Close();
+
+    private void SetDragClass()
+    => _dragClass = $"{DefaultDragClass} mud-border-primary";
+
+    private void ClearDragClass()
+        => _dragClass = DefaultDragClass;
+
+    private async Task OnInputFileChanged(InputFileChangeEventArgs e)
+    {
+        ClearDragClass();
+        var files = e.GetMultipleFiles();
+        foreach (var file in files)
+        {
+            _fileNames.Add(file.Name);
+            var buffer = new byte[file.Size];
+            await file.OpenReadStream().ReadAsync(buffer);
+            attachments.Add(new EmailAttachment
+                {
+                    FileName = file.Name,
+                    ContentType = file.ContentType,
+                    Content = buffer
+                });
+        }
+    }
+    private async Task ClearAsync()
+    {
+        await (_fileUpload?.ClearAsync() ?? Task.CompletedTask);
+        _fileNames.Clear();
+        attachments.Clear();
+        ClearDragClass();
+    }
+}

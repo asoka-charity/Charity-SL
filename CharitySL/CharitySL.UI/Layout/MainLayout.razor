@@ -1,0 +1,228 @@
+﻿@inherits LayoutComponentBase
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider provider
+@inject IConfiguration Configuration
+
+<MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider Position="DialogPosition.Center" CloseButton="true" MaxWidth="MaxWidth.ExtraLarge" />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="2" Class="appbar px-4 text-white" Color="Color.Primary" Style="margin-left:0px; width: 100%; background: linear-gradient(90deg, #0a350cd4 0%, #6ba26dfa 100%)">
+        <MudText Typo="Typo.h6" Class="font-semibold tracking-wide text-white" Style="width: 150px">Charity SL</MudText>
+        <AuthorizeView>
+            <Authorized>
+                <MudIconButton Icon="@Icons.Material.Filled.MenuOpen" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            </Authorized>
+        </AuthorizeView>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Warning" Style="align-content:center; width: fit-content; height: 30px;">@context.User.Identity?.Name (Admin)</MudChip>
+                <MudTooltip Text="Logout"><MudIconButton Icon="@Icons.Material.Rounded.Logout" Color="Color.Inherit" Size="Size.Medium" OnClick="Logout" /></MudTooltip>
+            </Authorized>
+            <NotAuthorized>
+                @if (!IsUrlContainsGuid())
+                {
+                    <MudNavMenu Color="Color.Warning" Style="display: flex; gap:150px; width: 100%">
+                        <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" IconColor="Color.Success" Match="NavLinkMatch.All">Home</MudNavLink>
+                        <MudNavLink Href="/about-us" Icon="@Icons.Material.Filled.Info" IconColor="Color.Success" Match="NavLinkMatch.All">About Us</MudNavLink>
+                        <MudNavLink Href="projects" Icon="@Icons.Material.Filled.Assignment" IconColor="Color.Success" Match="NavLinkMatch.All">Projects</MudNavLink>
+                        <MudNavLink Href="contact-us" Icon="@Icons.Material.Filled.Phone" IconColor="Color.Success" Match="NavLinkMatch.All">Contact Us</MudNavLink>
+                    </MudNavMenu>
+                    <MudSpacer />
+                    <MudTooltip Text="Login"><MudIconButton Icon="@Icons.Material.Rounded.Login" Color="Color.Inherit" Size="Size.Medium" Href="login" /></MudTooltip>
+                }
+                @if (IsUrlContainsGuid())
+                {
+                    <MudNavMenu Color="Color.Warning" Style="display: flex; gap:120px; width: 100%">
+                        <MudNavLink Href="@HomeUrl" Icon="@Icons.Material.Filled.Home" IconColor="Color.Success" Match="NavLinkMatch.All">Home</MudNavLink>
+                        <MudNavLink Href="@ProjectsUrl" Icon="@Icons.Material.Filled.AssignmentLate" IconColor="Color.Success" Class="w-100" Match="NavLinkMatch.All">Ongoing Projects</MudNavLink>
+                        <MudNavLink Href="@MyProjectsUrl" Icon="@Icons.Material.Filled.AssignmentInd" IconColor="Color.Success" Class="w-100" Match="NavLinkMatch.Prefix">My Projects</MudNavLink>
+                        <MudNavLink Href="@ProfileUrl" Icon="@Icons.Material.Filled.Person" IconColor="Color.Success" Match="NavLinkMatch.All">Profile</MudNavLink>
+                    </MudNavMenu>
+                    <MudSpacer />
+                    @if (!string.IsNullOrEmpty(user.DisplayName))
+                    {
+                        <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Warning" Style="align-content:center; width: fit-content; height: 30px">@user.DisplayName</MudChip>
+                    }
+                }
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <AuthorizeView>
+        <Authorized>
+            <MudDrawer @bind-Open="@_drawerOpen" ClipMode="_clipMode" Elevation="1" Variant="@DrawerVariant.Mini">
+                <MudNavMenu>
+                <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+                <MudNavLink Href="admin/contact" Icon="@Icons.Material.Filled.Phone" Match="NavLinkMatch.Prefix">Contact Management</MudNavLink>
+                <MudNavLink Href="admin/group" Icon="@Icons.Material.Filled.Groups" Match="NavLinkMatch.Prefix">Group Management</MudNavLink>
+                <MudNavGroup Icon="@Icons.Material.Filled.Assignment" Title="Project Management" Expanded="true">
+                    <MudNavLink Href="admin/project" Icon="@Icons.Material.Filled.AssignmentLate" Match="NavLinkMatch.Prefix">Projects</MudNavLink>
+                    <MudNavLink Href="admin/my-projects" Icon="@Icons.Material.Filled.AssignmentInd" Match="NavLinkMatch.All">My Projects</MudNavLink>
+                </MudNavGroup>
+                <MudNavLink Href="admin/donation" Icon="@Icons.Material.Filled.MonetizationOn" Match="NavLinkMatch.All">Donation Management</MudNavLink>
+                <MudNavLink Href="admin/guid" Icon="@Icons.Material.Filled.CardMembership" Match="NavLinkMatch.All">GUID Management</MudNavLink>
+                <MudNavLink Href="admin/profile" Icon="@Icons.Material.Filled.Person" Match="NavLinkMatch.All">Profile</MudNavLink>
+                <MudNavGroup Icon="@Icons.Material.Filled.MarkEmailRead" Title="Email Management" Expanded="true">
+                    <MudNavLink Href="admin/send-email" Icon="@Icons.Material.Filled.AttachEmail" Match="NavLinkMatch.All">Send To Contact</MudNavLink>
+                    <MudNavLink Href="admin/send-email/groups" Icon="@Icons.Material.Filled.MarkEmailUnread" Match="NavLinkMatch.All">Send To Group</MudNavLink>
+                    <MudNavLink Href="admin/sent/emails" Icon="@Icons.Material.Filled.SendAndArchive" Match="NavLinkMatch.All">Emails Sent</MudNavLink>
+                </MudNavGroup>
+                </MudNavMenu>
+            </MudDrawer>
+        </Authorized>
+    </AuthorizeView>
+    <MudMainContent Class="mt-16 pa-4" Style="min-height: calc(100vh - 80px);">
+        @Body
+    </MudMainContent>
+
+    <MudAppBar Style="height:40px; align-items:center; margin-left:0px; width: 100%; background: linear-gradient(90deg, #0a350cd4 0%, #6ba26dfa 100%)" Bottom="true" Fixed="true" Elevation="2" Color="Color.Primary" Class="footer text-center py-2 text-white">
+        <MudText Typo="Typo.caption">© 2025 All rights reserved | Developed by <strong><em>Pamodi Rathnayake</em></strong></MudText>
+    </MudAppBar>
+</MudLayout>
+
+@code {
+    public string UniqueId { get; set; }
+
+    private UserData user = new UserData();
+    private string WebApiAddress => Configuration["WebApiAddress"];
+
+    private bool _isDarkMode = false;
+    private MudTheme? _theme = null;
+
+    private DrawerClipMode _clipMode = DrawerClipMode.Never;
+    bool _drawerOpen = true;
+
+    private void Logout()
+    {
+        var authStateProvider = (CustomAuthenticationStateProvider)provider;
+        authStateProvider.Logout();
+        Navigation.NavigateTo("/login");
+    }
+
+    private bool IsUrlContainsGuid()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var segments = uri.Segments;
+        foreach (var segment in segments)
+        {
+            if (Guid.TryParse(segment.Trim('/'), out _))
+            {
+                UniqueId = segment.Trim('/');
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private string GuidValue => GetGuidFromUrl();
+    private string HomeUrl => $"/{GuidValue}";
+    private string ProjectsUrl => $"/{GuidValue}/projects";
+    private string MyProjectsUrl => $"/{GuidValue}/my-projects";
+    private string ProfileUrl => $"/{GuidValue}/profile";
+
+    private string GetGuidFromUrl()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var segments = uri.Segments;
+        return segments.Length > 1 ? segments[1].Trim('/') : string.Empty; // Extracts GUID from URL
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _theme = new()
+            {
+                PaletteLight = _lightPalette,
+                PaletteDark = _darkPalette,
+                LayoutProperties = new LayoutProperties()
+            };
+
+        if (IsUrlContainsGuid())
+        {
+            try
+            {
+                var response = await Http.GetFromJsonAsync<UserData>($"{WebApiAddress}/api/user/{UniqueId}");
+
+                user = response;
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    public class UserData
+    {
+        public string DisplayName { get; set; }
+    }
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void DarkModeToggle()
+    {
+        _isDarkMode = !_isDarkMode;
+    }
+
+    private readonly PaletteLight _lightPalette = new()
+        {
+            Primary = "#2e7d32",
+            Secondary = "#81c784", 
+            Tertiary = "#e8f5e9",
+            Background = "#f1f8e9",
+            Surface = "#ffffff",
+            AppbarBackground = "#2e7d32",
+            DrawerBackground = "#e8f5e9",
+            Success = "#4caf50",
+            Warning = "#ffa000",
+            Error = "#e53935",
+            Info = "#0288d1"
+        };
+
+    private readonly PaletteDark _darkPalette = new()
+        {
+            Primary = "#7e6fff",
+            Surface = "#1e1e2d",
+            Background = "#1a1a27",
+            BackgroundGray = "#151521",
+            AppbarText = "#92929f",
+            AppbarBackground = "rgba(26,26,39,0.8)",
+            DrawerBackground = "#1a1a27",
+            ActionDefault = "#74718e",
+            ActionDisabled = "#9999994d",
+            ActionDisabledBackground = "#605f6d4d",
+            TextPrimary = "#b2b0bf",
+            TextSecondary = "#92929f",
+            TextDisabled = "#ffffff33",
+            DrawerIcon = "#92929f",
+            DrawerText = "#92929f",
+            GrayLight = "#2a2833",
+            GrayLighter = "#1e1e2d",
+            Info = "#4a86ff",
+            Success = "#3dcb6c",
+            Warning = "#ffb545",
+            Error = "#ff3f5f",
+            LinesDefault = "#33323e",
+            TableLines = "#33323e",
+            Divider = "#292838",
+            OverlayLight = "#1e1e2d80",
+        };
+
+    public string DarkLightModeButtonIcon => _isDarkMode switch
+    {
+        true => Icons.Material.Rounded.LightMode,
+        false => Icons.Material.Outlined.DarkMode,
+    };
+
+    public string DarkLightModeButtonToolTip => _isDarkMode switch
+    {
+        true => "Light Mode",
+        false => "Dark Mode",
+    };
+}

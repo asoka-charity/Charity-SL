@@ -1,0 +1,92 @@
+﻿@page "/{uniqueId}/project/details/{projectId:int}"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+
+<PageTitle>Project Details</PageTitle>
+
+<MudText Typo="Typo.h5" Style="text-align:center">Project Details</MudText>
+<MudPaper Class="pa-5 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+    <MudForm Model="@projectDetailsModel">
+        @if (isLoading)
+        {
+            <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Name" @bind-Value="projectDetailsModel.Name" Disabled="true" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Description" @bind-Value="projectDetailsModel.Description" Lines="5" Disabled="true" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" Label="Project Status" @bind-Value="projectDetailsModel.Status" Disabled="true">
+                        <MudSelectItem T="string" Value="null">Select Project Status</MudSelectItem>
+                        @foreach (var projectStatus in projectStatuses)
+                        {
+                            <MudSelectItem T="string" Value="@projectStatus.Name">@projectStatus.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" Label="Project Category" @bind-Value="projectDetailsModel.Category" Disabled="true">
+                        <MudSelectItem T="string" Value="null">Select Project Category</MudSelectItem>
+                        @foreach (var projectCategory in projectCategories)
+                        {
+                            <MudSelectItem T="string" Value="@projectCategory.Name">@projectCategory.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+            <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+            </MudStack>
+        }
+    </MudForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public int projectId { get; set; }
+    [Parameter]
+    public string UniqueId { get; set; }
+
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<ProjectStatus> projectStatuses = Enumerable.Empty<ProjectStatus>();
+    private IEnumerable<ProjectCategory> projectCategories = Enumerable.Empty<ProjectCategory>();
+    public ProjectDetailModel projectDetailsModel = new ProjectDetailModel();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        await LoadProjectDetailsAsync();
+        await LoadLookupsAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadProjectDetailsAsync()
+    {
+        projectDetailsModel = await Http.GetFromJsonAsync<ProjectDetailModel>($"{WebApiAddress}/api/project/{projectId}");
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        projectStatuses = lookupData.ProjectStatuses;
+        projectCategories = lookupData.ProjectCategories;
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo($"/{UniqueId}/projects");
+    }
+}
+
+
+

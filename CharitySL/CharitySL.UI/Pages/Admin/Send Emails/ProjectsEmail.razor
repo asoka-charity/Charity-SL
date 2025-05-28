@@ -1,0 +1,121 @@
+﻿@page "/admin/send-email/project"
+
+@using System.Text.Json.Nodes
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject IDialogService DialogService
+
+<PageTitle>Projects Email</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Send Project Related Emails</MudText>
+        <MudPaper Class="pa-2" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            @if (isLoading)
+            {
+                <MudProgressLinear Color="Color.Success" Striped="true" Class="my-7" />
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="ProjectModel" Dense @bind-Value="selectedProject" ToStringFunc="@converter"
+                                   SelectedValuesChanged="OnProjectSelected" Immediate>
+                            @foreach (var project in projectsList)
+                            {
+                                <MudSelectItem Value="@project">@project.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudFlexBreak />
+                    <MudItem xs="12" md="6" Class="mt-2">
+                        <MudTextField T="string" Placeholder="Search/Select Groups"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                      ValueChanged="@(s=>FilterData(s))" Immediate />
+                        <MudFlexBreak />
+                        <MudList T="int" @bind-SelectedValues="selectedGroupIds" SelectionMode="SelectionMode.MultiSelection"
+                                 CheckBoxColor="Color.Success" Dense Style="height:350px;overflow-y:scroll;margin-left:-20px">
+                            @foreach (var item in filteredData)
+                            {
+                                <MudListItem Text=@(item.Name) Value="item.Id"></MudListItem>
+                            }
+                        </MudList>
+                    </MudItem>
+                </MudGrid>
+            }
+            <MudDivider Class="my-4" />
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-4" OnClick="OpenEmailModal" StartIcon="@Icons.Material.Filled.ArrowForward">Continue</MudButton>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private string searchTerm = string.Empty;
+    private IReadOnlyCollection<string> selectedEmails = [];
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private bool showEmailModal = false;
+    private bool isLoading = false;
+
+    private IEnumerable<ProjectModel> projectsList = Enumerable.Empty<ProjectModel>();
+    private ProjectModel selectedProject = new ProjectModel();
+    Func<ProjectModel, string> converter = p => p?.Name;
+
+    private IEnumerable<GroupModel> groupList = Enumerable.Empty<GroupModel>();
+    private IEnumerable<GroupModel> filteredData = Enumerable.Empty<GroupModel>();
+    private IReadOnlyCollection<int> selectedGroupIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        projectsList = await Http.GetFromJsonAsync<ProjectModel[]>($"{WebApiAddress}/api/project");
+        if (projectsList.Any())
+        {
+            selectedProject = projectsList.First();
+            await LoadGroupsAsync(selectedProject.Id);
+        }
+        groupList = await Http.GetFromJsonAsync<GroupModel[]>($"{WebApiAddress}/api/group");
+        filteredData = groupList;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = groupList
+            .Where(x => x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetGroupName(int id)
+    {
+        return groupList.FirstOrDefault(g => g.Id == id)?.Name ?? "Unknown";
+    }
+
+    private async Task OnProjectSelected()
+    {
+        await LoadGroupsAsync(selectedProject.Id);
+    }
+
+    private async Task LoadGroupsAsync(int projectId)
+    {
+        try
+        {
+            isLoading = true;
+        }
+        catch (Exception ex)
+        {
+            
+        }
+        isLoading = false;
+    }
+
+    private Task OpenEmailModal()
+    {
+        var parameters = new DialogParameters<EmailDialog> { { x => x.selectedEmails, selectedEmails } };
+
+        return DialogService.ShowAsync<EmailDialog>("", parameters);
+    }
+}

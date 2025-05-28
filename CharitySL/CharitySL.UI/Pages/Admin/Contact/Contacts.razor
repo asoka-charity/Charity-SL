@@ -1,0 +1,126 @@
+﻿@page "/admin/contact"
+@inject IConfiguration Configuration
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Contact Management</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Contact Management</MudText>
+        <MudTable Elevation="5" Items="filteredData" FixedHeader Hover SortLabel="Sort By"
+        Class="pa-2" Loading="@isLoading" LoadingProgressColor="Color.Success"
+                  Style="margin-top:2px; margin-bottom:2px; background: #d3d3d34f" Dense>
+            <ToolBarContent>
+                <MudItem xs="4" md="4">
+                    <MudTextField T="string" Placeholder="Search" Adornment="Adornment.Start"
+                    ValueChanged="@(s=>OnSearch(s))" Immediate
+                    AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"></MudTextField>
+                </MudItem>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="CreateClick">Create Contact</MudButton>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh Style="background: #d3d3d34f"><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<UserModel, object>(x=>x.FirstName)">First Name</MudTableSortLabel></MudTh>
+                <MudTh Style="background: #d3d3d34f"><MudTableSortLabel SortBy="new Func<UserModel, object>(x=>x.LastName)">Last Name</MudTableSortLabel></MudTh>
+                <MudTh Style="background: #d3d3d34f"><MudTableSortLabel SortBy="new Func<UserModel, object>(x=>x.Email)">Email</MudTableSortLabel></MudTh>
+                <MudTh Style="background: #d3d3d34f"><MudTableSortLabel SortBy="new Func<UserModel, object>(x=>x.PhoneNumber)">Phone Number</MudTableSortLabel></MudTh>
+                <MudTh Style="background: #d3d3d34f"><MudTableSortLabel SortBy="new Func<UserModel, object>(x=>x.WhatsAppNumber)">WhatsApp Number</MudTableSortLabel></MudTh>
+                <MudTh Style="background: #d3d3d34f">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="contact">
+                <MudTd DataLabel="First Name">@contact.FirstName</MudTd>
+                <MudTd DataLabel="Last Name">@contact.LastName</MudTd>
+                <MudTd DataLabel="Email">@contact.Email</MudTd>
+                <MudTd DataLabel="Phone Number">@contact.PhoneNumber</MudTd>
+                <MudTd DataLabel="WhatsApp Number">@contact.WhatsAppNumber</MudTd>
+                <MudTd DataLabel="Action">
+                    <MudButtonGroup Style="margin:-5px">
+                        <MudTooltip Text="View"><MudIconButton Color="Color.Warning" Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" OnClick="() => NavigateToDetails(contact.Id, false)" /></MudTooltip>
+                        <MudTooltip Text="Update"><MudIconButton Color="Color.Dark" Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => NavigateToDetails(contact.Id, true)" /></MudTooltip>
+                        <MudTooltip Text="Delete"><MudIconButton Color="Color.Error" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => OpenDeleteDialog(contact.Id)" /></MudTooltip>
+                    </MudButtonGroup>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{10, 20, 30, 40, 50, 100}" />
+            </PagerContent>
+        </MudTable>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private IEnumerable<UserModel> userList = Enumerable.Empty<UserModel>();
+    private IEnumerable<UserModel> filteredData = Enumerable.Empty<UserModel>();
+    private bool isLoading = true;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private string userIdToDelete;
+    private string searchTerm = string.Empty;
+    private IDialogReference deleteDialogReference;
+
+    protected override async Task OnInitializedAsync() => await LoadUsersAsync();
+
+    private async Task LoadUsersAsync()
+    {
+        isLoading = true;
+        userList = await Http.GetFromJsonAsync<UserModel[]>($"{WebApiAddress}/api/user");
+        filteredData = userList;
+        isLoading = false;
+    }
+
+    private void CreateClick()
+    {
+        NavigationManager.NavigateTo("/admin/contact/create");
+    }
+
+    private void NavigateToDetails(string userId, bool isEditMode)
+    {
+        if (isEditMode)
+            NavigationManager.NavigateTo($"/admin/contact/details/{userId}/update");
+        else
+            NavigationManager.NavigateTo($"/admin/contact/details/{userId}");
+    }
+
+    private async Task DeleteUserAsync()
+    {
+        var response = await Http.DeleteAsync($"{WebApiAddress}/api/user/{userIdToDelete}");;
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Contact deleted successfully.", Severity.Success);
+            deleteDialogReference?.Close();
+            await LoadUsersAsync();
+        }
+        else
+        {
+            Snackbar.Add("Error deleting contact.", Severity.Error);
+        }
+    }
+
+    private void OnSearch(string text)
+    {
+        filteredData = userList
+            .Where(item => item.FirstName.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrEmpty(item.LastName) && item.LastName.Contains(text, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(item.Email) && item.Email.Contains(text, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(item.PhoneNumber) && item.PhoneNumber.Contains(text, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(item.WhatsAppNumber) && item.WhatsAppNumber.Contains(text, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private void OpenDeleteDialog(string id)
+    {
+        userIdToDelete = id;
+
+        var parameters = new DialogParameters
+        {
+            { "ContentText", "Are you sure you want to delete this contact?" },
+            { "IsDelete", true },
+            { "DeleteBtnClick", EventCallback.Factory.Create(this, DeleteUserAsync) },
+            { "Color", Color.Error }
+        };
+
+        deleteDialogReference = DialogService.Show<AlertDialog>("Delete", parameters);
+    }
+}

@@ -1,0 +1,122 @@
+﻿@page "/admin/project/create"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Project</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Create Project</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@createProjectRequest">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="8">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Name" @bind-Value="createProjectRequest.Name" Required="true" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Description" @bind-Value="createProjectRequest.Description" Lines="5" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Project Status" @bind-Value="createProjectRequest.Status">
+                                @foreach (var projectStatus in projectStatuses)
+                                {
+                                    <MudSelectItem T="string" Value="@projectStatus.Name">@projectStatus.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Project Category" @bind-Value="createProjectRequest.Category">
+                                @foreach (var projectCategory in projectCategories)
+                                {
+                                    <MudSelectItem T="string" Value="@projectCategory.Name">@projectCategory.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isCreating" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isCreating" OnClick="HandleProjectCreate" StartIcon="@Icons.Material.Filled.CreateNewFolder">Create</MudButton>
+                    </MudStack>
+
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private CreateProjectRequest createProjectRequest = new();
+    private string errorMessage = null;
+    private bool isCreating = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<ProjectStatus> projectStatuses = Enumerable.Empty<ProjectStatus>();
+    private IEnumerable<ProjectCategory> projectCategories = Enumerable.Empty<ProjectCategory>();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookupsAsync();
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        isLoading = true;
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        projectStatuses = lookupData.ProjectStatuses;
+        projectCategories = lookupData.ProjectCategories;
+        isLoading = false;
+    }
+
+    private async Task HandleProjectCreate()
+    {
+        try
+        {
+            isCreating = true;
+            var response = await Http.PostAsJsonAsync($"{WebApiAddress}/api/project", createProjectRequest);
+            isCreating = false;
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Project created successfully.", Severity.Success);
+                NavigateToProjects();
+            }
+            else
+            {
+                errorMessage = "Error in project creation.";
+                Snackbar.Add("Error creating project.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add("An error occurred while creating project.", Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToProjects();
+    }
+
+    private void NavigateToProjects()
+    {
+        NavigationManager.NavigateTo("/admin/project");
+    }
+}
+

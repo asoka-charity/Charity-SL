@@ -1,0 +1,107 @@
+﻿@page "/{uniqueId}/my-projects"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject ISnackbar Snackbar
+
+<PageTitle>My Projects</PageTitle>
+
+@if (projects == null || isLoading)
+{
+    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+}
+else if (error)
+{
+    <MudText Typo="Typo.body1">Unable to load project details.</MudText>
+}
+else
+{
+    <MudText Typo="Typo.h5" Style="text-align:center">My Projects</MudText>
+    <MudTabs Centered AlwaysShowScrollButtons="true" Color="@Color.Inherit" Elevation="5">
+        @foreach (var project in projects)
+        {
+            <MudTabPanel Icon="@GetIcon(project.Category)" BadgeColor="@GetBadgeColor(project.Category)" BadgeData='string.Empty' BadgeDot="true"
+                         ToolTip="@project.Name" Style="background: #d3d3d34f">
+                <MudCard Style="background: #d3d3d34f">
+                    @* <MudCardMedia Image="@project.ImageUrl" Height="200" /> *@
+                    <MudCardContent>
+                        <MudText Typo="Typo.h5" Class="mb-2">@project.Name</MudText>
+                        <MudText Typo="Typo.body1">@project.Description</MudText>
+                        <MudChip T="string" Color="@GetStatusColor(project.Status)">@project.Status</MudChip>
+                        <MudText Typo="Typo.body1">Amount Donated: 100</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudTabPanel>
+        }
+    </MudTabs>
+}
+
+<style>
+    .mud-tabs-tabbar {
+        background: #d3d3d34f
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string UniqueId { get; set; }
+
+    private List<ProjectModel> projects = new List<ProjectModel>();
+    private bool error = false;
+    private bool isLoading = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        if (!string.IsNullOrEmpty(UniqueId))
+        {
+            try
+            {
+                var response = await Http.GetFromJsonAsync<UserProjectModel>($"{WebApiAddress}/api/user/{UniqueId}/projects");
+                projects = response.ProjectsList;
+            }
+            catch (Exception ex)
+            {
+                error = true;
+                // Snackbar.Add($"Error loading projects: {ex.Message}", Severity.Error);
+            }
+        }
+        isLoading = false;
+    }
+
+    private string GetIcon(string category)
+    {
+        return category switch
+        {
+            "Education" => Icons.Material.Filled.School,
+            "Health" => Icons.Material.Filled.LocalHospital,
+            "Environment" => Icons.Material.Filled.Compost,
+            "Food" => Icons.Material.Filled.FoodBank,
+            _ => Icons.Material.Filled.Folder
+        };
+    }
+
+    private Color GetBadgeColor(string category)
+    {
+        return category switch
+        {
+            "Education" => Color.Info,
+            "Health" => Color.Secondary,
+            "Environment" => Color.Success,
+            "Food" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Pending" => Color.Warning,
+            "Completed" => Color.Success,
+            _ => Color.Default
+        };
+    }
+}
+

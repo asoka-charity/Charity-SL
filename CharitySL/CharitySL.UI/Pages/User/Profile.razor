@@ -1,0 +1,107 @@
+﻿@page "/{uniqueId}/profile"
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+@inject ISnackbar Snackbar
+
+<PageTitle>Profile</PageTitle>
+
+<MudText Typo="Typo.h5" Style="text-align:center">Profile</MudText>
+@if (user == null || isLoading)
+{
+    <MudProgressLinear Color="Color.Success" Striped="true" Class="my-7" />
+}
+else if (error)
+{
+    <MudText Typo="Typo.body1">Unable to load user details.</MudText>
+}
+else
+{
+    <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+        <MudForm>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="First Name" FullWidth="true" Value="@user.FirstName" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Email" FullWidth="true" Value="@user.Email" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Phone Number" FullWidth="true" Value="@user.PhoneNumber" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Whatsapp Number" FullWidth="true" Value="@user.WhatsAppNumber" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Street" FullWidth="true" Value="@user.Street" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="City" FullWidth="true" Value="@user.City" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Province" FullWidth="true" Value="@user.Province" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Country" FullWidth="true" Value="@user.Country" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Postal Code" FullWidth="true" Value="@user.PostalCode" />
+                </MudItem>
+                <MudFlexBreak />
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Description" FullWidth="true" Value="@user.Description" />
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+        </MudForm>
+        <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Edit">Update</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public string UniqueId { get; set; }
+
+    private UserDetailsModel user = new UserDetailsModel();
+    private bool error = false;
+    private bool isLoading = false;
+
+    private string WebApiAddress => Configuration["WebApiAddress"];
+
+    protected override async Task OnInitializedAsync()
+    {
+		isLoading = true;
+        if (!string.IsNullOrEmpty(UniqueId))
+        {
+            try
+            {
+                var response = await Http.GetFromJsonAsync<UserDetailsModel>($"{WebApiAddress}/api/user/profile/{UniqueId}?role=USER");
+                user = response;
+            }
+            catch (Exception)
+            {
+                error = true;
+            }
+        }
+		isLoading = false;
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/{UniqueId}");
+    }
+}
+

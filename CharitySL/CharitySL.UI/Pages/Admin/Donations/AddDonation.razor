@@ -1,0 +1,184 @@
+﻿@page "/admin/add-donation"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Add Donation</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Add Donation</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@projectContributionRequest">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="UserModel" Dense @bind-Value="selectedUser" ToStringFunc="@converter"
+                                       SelectedValuesChanged="OnUserSelected" Immediate Label="Contact">
+                                @foreach (var user in userList)
+                                {
+                                    var item = user.FirstName + " " + user?.LastName;
+                                    <MudSelectItem Value="@user">@item</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="ProjectModel" Dense @bind-Value="selectedProject" ToStringFunc="@projectConverter"
+                                       SelectedValuesChanged="OnProjectSelected" Immediate Label="Project">
+                                @foreach (var project in projectsList)
+                                {
+                                    <MudSelectItem Value="@project">@project.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudNumericField @bind-Value="projectContributionRequest.Amount" Label="Amount" Step=".2M" Required />
+                        </MudItem>
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudSelect T="string" Label="Payment Status" @bind-Value="projectContributionRequest.PaymentStatus" Disabled Dense>
+                                @foreach (var paymentStatus in paymentStatuses)
+                                {
+                                    <MudSelectItem T="string" Value="@paymentStatus.Status">@paymentStatus.Status</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudDatePicker Label="Pay on or before" @bind-Date="_date" MinDate="DateTime.Today" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudSelect T="string" Label="Payment Method" @bind-Value="projectContributionRequest.PaymentMethod" Dense>
+                                @foreach (var paymentMethod in paymentMethods)
+                                {
+                                    <MudSelectItem T="string" Value="@paymentMethod.MethodName">@paymentMethod.MethodName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudTextField T="string" Label="Payment Reference" @bind-Value="projectContributionRequest.PaymentReference" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Additional Note" @bind-Value="projectContributionRequest.AdditionalNote" Lines="5" />
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        <MudButton Variant="Variant.Filled" Color="Color.Inherit" Disabled="@isSubmitting" OnClick="Cancel" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isSubmitting" OnClick="OnAddDonation" StartIcon="@Icons.Material.Filled.AttachMoney">Add Donation</MudButton>
+                    </MudStack>
+
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    public int projectId { get; set; }
+
+    private CreateProjectContributionRequest projectContributionRequest = new();
+    private string errorMessage = null;
+    private bool showSuccessModal = false;
+    private bool isSubmitting = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<PaymentMethod> paymentMethods = Enumerable.Empty<PaymentMethod>();
+    private IEnumerable<PaymentStatus> paymentStatuses = Enumerable.Empty<PaymentStatus>();
+    private DateTime? _date = DateTime.Today;
+    private bool isLoading = false;
+
+    private IEnumerable<UserModel> userList = Enumerable.Empty<UserModel>();
+    private UserModel selectedUser = new UserModel();
+    Func<UserModel, string> converter = p => p.FirstName + " " + p?.LastName;
+
+    private IEnumerable<ProjectModel> projectsList = Enumerable.Empty<ProjectModel>();
+    private ProjectModel selectedProject = new ProjectModel();
+    Func<ProjectModel, string> projectConverter = p => p?.Name;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        await LoadLookupsAsync();
+        userList = await Http.GetFromJsonAsync<UserModel[]>($"{WebApiAddress}/api/user");
+        projectsList = await Http.GetFromJsonAsync<ProjectModel[]>($"{WebApiAddress}/api/project");
+        isLoading = false;
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        paymentMethods = lookupData.PaymentMethods;
+        paymentStatuses = lookupData.PaymentStatuses;
+    }
+
+    private void OnUserSelected()
+    {
+        projectContributionRequest.UserId = selectedUser.Id;
+    }
+
+    private async Task OnProjectSelected()
+    {
+        projectId = selectedProject.Id;
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/admin/donation");
+    }
+
+    private async Task OnAddDonation()
+    {
+        try
+        {
+            isSubmitting = true;
+
+            projectContributionRequest.PaidDate = _date ?? DateTime.Today;
+            var response = await Http.PostAsJsonAsync($"{WebApiAddress}/api/projectcontribution/{projectId}", projectContributionRequest);
+            isSubmitting = false;
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Donation added successfully.", Severity.Success);
+                NavigationManager.NavigateTo("/admin/donation");
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadAsStringAsync();
+                var jsonResponse = JsonNode.Parse(errorResponse);
+                if (jsonResponse != null && jsonResponse["errors"] != null)
+                {
+                    var errors = jsonResponse["errors"].AsObject();
+                    var formattedErrors = string.Join("\n", errors.SelectMany(e => e.Value.AsArray().Select(msg => $"{msg}")));
+
+                    foreach (var error in errors)
+                    {
+                        foreach (var message in error.Value.AsArray())
+                        {
+                            Snackbar.Add($"{message.ToString()}", Severity.Error);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+    }
+}

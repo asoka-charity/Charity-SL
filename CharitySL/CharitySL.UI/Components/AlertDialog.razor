@@ -1,0 +1,37 @@
+﻿<MudDialog Style="background: #ece7e7">
+    <DialogContent>
+        <MudText>@ContentText</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="CancelClick" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+        @if (!IsDelete)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OkBtnClick" StartIcon="@Icons.Material.Filled.Check">OK</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="@Color" OnClick="DeleteBtnClick" StartIcon="@Icons.Material.Filled.Delete">Delete</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string Title { get; set; }
+    [Parameter]
+    public bool IsDelete { get; set; }
+    [Parameter]
+    public string ContentText { get; set; }
+    [Parameter]
+    public EventCallback DeleteBtnClick { get; set; }
+    [Parameter]
+    public EventCallback OkBtnClick { get; set; }
+
+    [Parameter]
+    public Color Color { get; set; }
+
+    private void CancelClick() => MudDialog.Close();
+}

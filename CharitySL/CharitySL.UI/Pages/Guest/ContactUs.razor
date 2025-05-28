@@ -1,0 +1,49 @@
+﻿@page "/contact-us"
+
+<PageTitle>Contact Us</PageTitle>
+
+<MudGrid>
+    <MudItem xs="12">
+        <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-2">We'd love to hear from you!</MudText>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Elevation="5" Class="p-4 pa-2" Style="background: #d3d3d34f">
+            <MudText Typo="Typo.h5" Class="mb-2">Get in Touch</MudText>
+            <MudText Typo="Typo.body1">
+                We believe in the power of community and collaboration. Whether you have questions about our ongoing projects,
+                wish to volunteer, or are looking for ways to contribute, we would love to hear from you. Your support makes a
+                difference in the lives of those in need, and every effort counts.
+                <br /><br />
+                Feel free to reach out to us for more information or simply to share your thoughts.
+                Together, we can build a better future for those who need it the most.
+            </MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6">
+        <MudPaper Elevation="5" Class="p-4 pa-1" Style="background: #d3d3d34f;">
+            <MudList Class="mt-1" T="string">
+                <MudListItem Icon="@Icons.Material.Filled.AlternateEmail" IconColor="Color.Success" Class="mr-2"> asokacharity@gmail.com</MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Phone" IconColor="Color.Success" Class="mr-2"> +1 234 567 890</MudListItem>
+                <MudListItem Icon="@Icons.Material.Outlined.Mail" IconColor="Color.Success" Class="mr-2"> 123 Charity Lane, Scarborough, Canada</MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Language" IconColor="Color.Success" Class="mr-2">
+                    <MudLink Href="https://charity-sl.runasp.net/" Color="Color.Success">
+                        charity-sl.runasp.net
+                    </MudLink>
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Elevation="5" Class="p-4 pa-3" Style="background: #d3d3d34f">
+            <MudText Typo="Typo.h5" Class="mb-1">Leave Us a Message</MudText>
+            <MudForm>
+                <MudTextField T="string" Label="Your Name" FullWidth="true" Class="mb-3" />
+                <MudTextField T="string" Label="Your Email" FullWidth="true" Class="mb-3" />
+                <MudTextField T="string" Label="Your Message" FullWidth="true" Lines="3" Class="mb-3" />
+                <div class="d-flex align-left">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Email" Color="Color.Success">Send</MudButton>
+                </div>
+            </MudForm>
+        </MudPaper>
+    </MudItem>
+</MudGrid>

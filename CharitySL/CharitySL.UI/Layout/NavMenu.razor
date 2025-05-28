@@ -1,0 +1,79 @@
+﻿@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudNavMenu>
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+            <MudNavLink Href="admin/contact" Icon="@Icons.Material.Filled.Phone" Match="NavLinkMatch.Prefix">Contact Management</MudNavLink>
+            <MudNavLink Href="admin/group" Icon="@Icons.Material.Filled.Groups" Match="NavLinkMatch.Prefix">Group Management</MudNavLink>
+            <MudNavGroup Icon="@Icons.Material.Filled.Assignment" Title="Project Management" Expanded="true">
+                <MudNavLink Href="admin/project" Icon="@Icons.Material.Filled.AssignmentLate" Match="NavLinkMatch.Prefix">Projects</MudNavLink>
+                <MudNavLink Href="admin/my-projects" Icon="@Icons.Material.Filled.AssignmentInd" Match="NavLinkMatch.All">My Projects</MudNavLink>
+            </MudNavGroup>
+            <MudNavLink Href="admin/donation" Icon="@Icons.Material.Filled.MonetizationOn" Match="NavLinkMatch.All">Donation Management</MudNavLink>
+            <MudNavLink Href="admin/guid" Icon="@Icons.Material.Filled.CardMembership" Match="NavLinkMatch.All">GUID Management</MudNavLink>
+            <MudNavLink Href="admin/profile" Icon="@Icons.Material.Filled.Person" Match="NavLinkMatch.All">Profile</MudNavLink>
+            <MudNavGroup Icon="@Icons.Material.Filled.MarkEmailRead" Title="Email Management" Expanded="true">
+                <MudNavLink Href="admin/send-email" Icon="@Icons.Material.Filled.AttachEmail" Match="NavLinkMatch.All">Send To Contact</MudNavLink>
+                @* <MudNavLink Href="admin/send-email/project" Icon="@Icons.Material.Filled.AlternateEmail" Match="NavLinkMatch.All">Projects Email</MudNavLink> *@
+                <MudNavLink Href="admin/send-email/groups" Icon="@Icons.Material.Filled.MarkEmailUnread" Match="NavLinkMatch.All">Send To Group</MudNavLink>
+                <MudNavLink Href="admin/sent/emails" Icon="@Icons.Material.Filled.SendAndArchive" Match="NavLinkMatch.All">Emails Sent</MudNavLink>
+            </MudNavGroup>
+        </Authorized>
+        <NotAuthorized>
+            @if (IsUrlContainsGuid())
+            {
+                <MudNavLink Href="@HomeUrl" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+                <MudNavGroup Icon="@Icons.Material.Filled.Assignment" Title="Projects" Expanded="true">
+                    <MudNavLink Href="@ProjectsUrl" Icon="@Icons.Material.Filled.AssignmentLate" Match="NavLinkMatch.All">Ongoing Projects</MudNavLink>
+                    <MudNavLink Href="@MyProjectsUrl" Icon="@Icons.Material.Filled.AssignmentInd" Match="NavLinkMatch.Prefix">My Projects</MudNavLink>
+                </MudNavGroup>
+                <MudNavLink Href="@ProfileUrl" Icon="@Icons.Material.Filled.Person" Match="NavLinkMatch.All">Profile</MudNavLink>
+            }
+            else
+            {
+                <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+                <MudNavLink Href="/about-us" Icon="@Icons.Material.Filled.Info" Match="NavLinkMatch.All">About Us</MudNavLink>
+                <MudNavLink Href="projects" Icon="@Icons.Material.Filled.Assignment" Match="NavLinkMatch.All">Projects</MudNavLink>
+                <MudNavLink Href="contact-us" Icon="@Icons.Material.Filled.Phone" Match="NavLinkMatch.All">Contact Us</MudNavLink>
+            }
+        </NotAuthorized>
+    </AuthorizeView>
+</MudNavMenu>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private bool IsUrlContainsGuid()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var segments = uri.Segments;
+        foreach (var segment in segments)
+        {
+            if (Guid.TryParse(segment.Trim('/'), out _))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private string GuidValue => GetGuidFromUrl();
+    private string HomeUrl => $"/{GuidValue}";
+    private string ProjectsUrl => $"/{GuidValue}/projects";
+    private string MyProjectsUrl => $"/{GuidValue}/my-projects";
+    private string ProfileUrl => $"/{GuidValue}/profile";
+
+    private string GetGuidFromUrl()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var segments = uri.Segments;
+        return segments.Length > 1 ? segments[1].Trim('/') : string.Empty; // Extracts GUID from URL
+    }
+}

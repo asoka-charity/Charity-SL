@@ -1,0 +1,185 @@
+﻿@page "/admin/group/details/{groupId}"
+@page "/admin/group/details/{groupId}/update"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@headerTitle</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">@headerTitle</MudText>
+        <MudPaper Class="pa-2 mb-2" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@groupDetailsModel" @ref="form">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Group Name" Margin="Margin.Dense" @bind-Value="groupDetailsModel.Name" Disabled="@(!isEditMode)" Required="true" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" Style="padding-top: 0px;">
+                            <MudTextField T="string" Label="Description" Margin="Margin.Dense" @bind-Value="groupDetailsModel.Description" Disabled="@(!isEditMode)" Lines="3" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        @if (!isEditMode)
+                        {
+                            <MudItem xs="12" md="6" Class="mt-2" Style="padding-top: 0px;">
+                                <MudTextField T="string" Placeholder="Search/Select to assign contacts"
+                                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                              ValueChanged="@(s=>FilterData(s))" Immediate />
+                                <MudFlexBreak />
+                                <MudList T="string" ReadOnly @bind-SelectedValues="groupDetailsModel.AssignedUserIds" SelectionMode="SelectionMode.MultiSelection"
+                                         CheckBoxColor="Color.Success" Dense Style="height:255px;overflow-y:scroll;margin-left:-20px">
+                                    @foreach (var item in filteredData)
+                                    {
+                                        var itemName = $"{item.FirstName} {item.LastName}";
+                                        <MudListItem Text=@(itemName) Value="item.Id"></MudListItem>
+                                    }
+                                </MudList>
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12" md="6" Class="mt-2" Style="padding-top: 0px;">
+                                <MudTextField T="string" Placeholder="Search/Select to assign contacts"
+                                Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                ValueChanged="@(s=>FilterData(s))" Immediate />
+                                <MudFlexBreak />
+                                <MudList T="string" @bind-SelectedValues="groupDetailsModel.AssignedUserIds" SelectionMode="SelectionMode.MultiSelection"
+                                         CheckBoxColor="Color.Success" Dense Style="height:255px;overflow-y:scroll;margin-left:-20px">
+                                    @foreach (var item in filteredData)
+                                    {
+                                        var itemName = $"{item.FirstName} {item.LastName}";
+                                        <MudListItem Text=@(itemName) Value="item.Id"></MudListItem>
+                                    }
+                                </MudList>
+                            </MudItem>
+                        }
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" Style="padding-top: 0px;">
+                            <MudTextField Label="Created On" Disabled Margin="Margin.Dense" @bind-Value="groupDetailsModel.CreatedAt" />
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        @if (isEditMode)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isUpdating" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isUpdating" OnClick="UpdateGroup" StartIcon="@Icons.Material.Filled.Edit">Update</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isUpdating" StartIcon="@Icons.Material.Filled.ArrowBack">Go Back</MudButton>
+                        }
+                    </MudStack>
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string groupId { get; set; }
+
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private bool isEditMode = false;
+    private string headerTitle = "Group Details";
+    public GroupDetailsModel groupDetailsModel = new GroupDetailsModel();
+    private string errorMessage = null;
+    private bool isUpdating = false;
+    private MudForm form;
+    private bool isLoading = false;
+
+    private string searchTerm = string.Empty;
+    private IEnumerable<UserModel> users = Enumerable.Empty<UserModel>();
+    private IEnumerable<UserModel> filteredData = Enumerable.Empty<UserModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isEditMode = NavigationManager.Uri.EndsWith("/update", StringComparison.OrdinalIgnoreCase);
+
+        headerTitle = isEditMode ? "Update Group Details" : "Group Details";
+
+        await LoadGroupDetailsAsync();
+    }
+
+    private async Task LoadGroupDetailsAsync()
+    {
+        isLoading = true;
+        groupDetailsModel = await Http.GetFromJsonAsync<GroupDetailsModel>($"{WebApiAddress}/api/group/{groupId}");
+        users = await Http.GetFromJsonAsync<UserModel[]>($"{WebApiAddress}/api/user");
+        filteredData = users;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = users
+            .Where(x => x.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(x.LastName) && x.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Email) && x.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.PhoneNumber) && x.PhoneNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.WhatsAppNumber) && x.WhatsAppNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetUserName(string id)
+    {
+        var user = users.FirstOrDefault(g => g.Id == id);
+        return user?.FirstName + " " + user?.LastName ?? "-";
+    }
+
+    private async Task UpdateGroup()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            try
+            {
+                isUpdating = true;
+                var response = await Http.PutAsJsonAsync($"{WebApiAddress}/api/group/{groupId}", groupDetailsModel);
+                isUpdating = false;
+                if (response.IsSuccessStatusCode)
+                {
+                    Snackbar.Add("Group updated successfully.", Severity.Success);
+                    NavigateToGroups();
+                }
+                else
+                {
+                    errorMessage = "Error in group updation.";
+                    Snackbar.Add("Error updating group.", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "An error occurred: " + ex.Message;
+                Snackbar.Add("An error occurred while updating group.", Severity.Error);
+            }
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToGroups();
+    }
+
+    private void NavigateToGroups()
+    {
+        NavigationManager.NavigateTo("/admin/group");
+    }
+}

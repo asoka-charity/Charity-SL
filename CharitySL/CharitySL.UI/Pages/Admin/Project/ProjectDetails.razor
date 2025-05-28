@@ -1,0 +1,153 @@
+﻿@page "/admin/project/details/{projectId:int}"
+@page "/admin/project/details/{projectId:int}/update"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@headerTitle</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">@headerTitle</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@projectDetailsModel">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="8">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Name" @bind-Value="projectDetailsModel.Name" Disabled="@(!isEditMode)" Required="true" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Description" @bind-Value="projectDetailsModel.Description" Lines="5" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Project Status" @bind-Value="projectDetailsModel.Status" Disabled="@(!isEditMode || projectDetailsModel.Status == "Completed")">
+                                @foreach (var projectStatus in projectStatuses)
+                                {
+                                    <MudSelectItem T="string" Value="@projectStatus.Name">@projectStatus.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Project Category" @bind-Value="projectDetailsModel.Category" Disabled="@(!isEditMode)">
+                                @foreach (var projectCategory in projectCategories)
+                                {
+                                    <MudSelectItem T="string" Value="@projectCategory.Name">@projectCategory.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField Label="Created On" Disabled @bind-Value="projectDetailsModel.CreatedAt" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        @if (isEditMode)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isUpdating" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isUpdating" OnClick="UpdateProject" StartIcon="@Icons.Material.Filled.Edit">Update</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isUpdating" StartIcon="@Icons.Material.Filled.ArrowBack">Go Back</MudButton>
+                        }
+                    </MudStack>
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public int projectId { get; set; }
+    [Parameter]
+    public string UniqueId { get; set; }
+
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<ProjectStatus> projectStatuses = Enumerable.Empty<ProjectStatus>();
+    private IEnumerable<ProjectCategory> projectCategories = Enumerable.Empty<ProjectCategory>();
+    private bool isEditMode = false;
+    private string headerTitle = "Project Details";
+    public ProjectDetailModel projectDetailsModel = new ProjectDetailModel();
+    private string errorMessage = null;
+    private bool isUpdating = false;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isEditMode = NavigationManager.Uri.EndsWith("/update", StringComparison.OrdinalIgnoreCase);
+
+        headerTitle = isEditMode ? "Update Project Details" : "Project Details";
+
+        isLoading = true;
+        await LoadProjectDetailsAsync();
+        await LoadLookupsAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadProjectDetailsAsync()
+    {
+        projectDetailsModel = await Http.GetFromJsonAsync<ProjectDetailModel>($"{WebApiAddress}/api/project/{projectId}");
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        projectStatuses = lookupData.ProjectStatuses;
+        projectCategories = lookupData.ProjectCategories;
+    }
+
+    private async Task UpdateProject()
+    {
+        try
+        {
+            isUpdating = true;
+            var response = await Http.PutAsJsonAsync($"{WebApiAddress}/api/project/{projectId}", projectDetailsModel);
+            isUpdating = false;
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Project updated successfully.", Severity.Success);
+                NavigateToProjects();
+            }
+            else
+            {
+                errorMessage = "Error in project updation.";
+                Snackbar.Add("Error updating project.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add("An error occurred while updating project.", Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToProjects();
+    }
+
+    private void NavigateToProjects()
+    {
+        NavigationManager.NavigateTo("/admin/project");
+    }
+}
+
+

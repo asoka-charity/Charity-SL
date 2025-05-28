@@ -1,0 +1,121 @@
+﻿@page "/admin/sent/emails"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject IJSRuntime JS
+
+<PageTitle>Email Management</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Sent Emails</MudText>
+        <MudDataGrid T="SentEmailDetails" Items="@filteredData" Filterable="true" QuickFilter="@_quickFilter"
+                     Loading="@isLoading" LoadingProgressColor="Color.Success" Dense Class="pa-0 mb-2" Elevation="5" Style="background: #d3d3d34f">
+            <ToolBarContent>
+                <MudItem xs="4" md="4">
+                    <MudTextField @bind-Value="searchTerm" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </MudItem>
+            </ToolBarContent>
+            <Columns>
+                <PropertyColumn Property="x => x.Receipient" SortBy="new Func<SentEmailDetails, object>(x=>x.Receipient)" Title="Receipient Email" />
+                <PropertyColumn Property="x => x.EmailSubject" SortBy="new Func<SentEmailDetails, object>(x=>x.EmailSubject)" Title="Email Subject" />
+                <TemplateColumn Title="Email Status">
+                    <CellTemplate Context="emailStatus">
+                        <MudChip T="string" Style="align-content:center; width: 100px; height: 28px" Color="@GetStatusColor(emailStatus.Item.EmailStatus)">@emailStatus.Item.EmailStatus</MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.EmailSentOn" SortBy="new Func<SentEmailDetails, object>(x=>x.EmailSentOn)" Title="Email Sent On" />
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="SentEmailDetails" PageSizeOptions=@(new int[] { 10, 20, 30, 40, 50, 100}) />
+            </PagerContent>
+        </MudDataGrid>
+        <MudButton OnClick="ExportToExcel" Variant="Variant.Filled" Class="mt-2" Color="Color.Success" Size="Size.Medium" StartIcon="@Icons.Material.Filled.ImportExport" Disabled="@(isExporting)">Export</MudButton>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private string searchTerm = string.Empty;
+    private IEnumerable<SentEmailDetails> sentEmailsList = Enumerable.Empty<SentEmailDetails>();
+    private IEnumerable<SentEmailDetails> filteredData = Enumerable.Empty<SentEmailDetails>();
+    private bool isLoading = false;
+    public bool isExporting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        sentEmailsList = await Http.GetFromJsonAsync<SentEmailDetails[]>($"{WebApiAddress}/api/email/sent");
+        filteredData = sentEmailsList;
+        isLoading = false;
+    }
+
+    private Func<SentEmailDetails, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return true;
+
+        if (x.Receipient.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.EmailSubject.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Sent" => Color.Success,
+            "Failed" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Sent Emails");
+
+            // Add headers
+            var headers = new string[] { "Receipient Email", "Email Subject", "Email Status", "Sent On" };
+            for (int col = 0; col < headers.Length; col++)
+            {
+                worksheet.Cell(1, col + 1).Value = headers[col];
+            }
+
+            // Convert filteredData to a List to allow indexing
+            var emailList = filteredData.ToList();
+
+            // Populate data
+            for (int i = 0; i < emailList.Count; i++)
+            {
+                var res = emailList[i];
+                worksheet.Cell(i + 2, 1).Value = res.Receipient;
+                worksheet.Cell(i + 2, 2).Value = res.EmailSubject;
+                worksheet.Cell(i + 2, 3).Value = res.EmailStatus;
+                worksheet.Cell(i + 2, 4).Value = res.EmailSentOn;
+            }
+
+            // Save to memory stream
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var fileName = $"SentEmails_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+            // Convert to Base64 for download
+            var fileBytes = stream.ToArray();
+            var base64String = Convert.ToBase64String(fileBytes);
+
+            await JS.InvokeVoidAsync("saveAsFile", fileName, base64String);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error exporting to Excel: " + ex.Message);
+        }
+    }
+}

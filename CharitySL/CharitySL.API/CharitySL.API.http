@@ -1,0 +1,6 @@
+@CharitySL.API_HostAddress = http://localhost:5021
+
+GET {{CharitySL.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

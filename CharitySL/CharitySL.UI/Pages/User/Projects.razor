@@ -1,0 +1,95 @@
+﻿@page "/{uniqueId}/projects"
+
+@inject IConfiguration Configuration
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<PageTitle>Ongoing Projects</PageTitle>
+
+<MudText Typo="Typo.h5" Style="text-align:center">Ongoing Projects</MudText>
+<MudDataGrid T="ProjectModel" Items="@filteredData" Filterable="true" QuickFilter="@_quickFilter" Elevation="5" Class="pa-2 mb-4"
+             Hideable="true" Loading="@isLoading" LoadingProgressColor="Color.Success" Dense Style="background: #d3d3d34f">
+    <ToolBarContent>
+        <MudItem xs="4" md="4">
+            <MudTextField @bind-Value="searchTerm" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium"></MudTextField>
+        </MudItem>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Name" SortBy="new Func<ProjectModel, object>(x=>x.Name)" />
+        <TemplateColumn Title="Description">
+            <CellTemplate Context="project">
+                @if (!string.IsNullOrEmpty(project.Item.Description) && project.Item.Description.Length > 45)
+                {
+                    <MudTooltip Text="@project.Item.Description">
+                        <span>@project.Item.Description.Substring(0, 45)...</span>
+                    </MudTooltip>
+                }
+                else
+                {
+                    <span>@project.Item.Description</span>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Action">
+            <CellTemplate Context="Actions">
+                <MudButtonGroup Style="margin:-5px">
+                    <MudTooltip Text="View"><MudIconButton Color="Color.Warning" Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" OnClick="@(e => NavigateToDetails(Actions.Item.Id))" /></MudTooltip>
+                    <MudTooltip Text="Add Donation"><MudIconButton Color="Color.Inherit" Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" OnClick="@(e => NavigateToDonation(Actions.Item.Id))" /></MudTooltip>
+                </MudButtonGroup>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="ProjectModel" PageSizeOptions=@(new int[] { 10, 20, 30, 40, 50, 100 }) />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter]
+    public string UniqueId { get; set; }
+
+    private IEnumerable<ProjectModel> projectsList = Enumerable.Empty<ProjectModel>();
+    private IEnumerable<ProjectModel> filteredData = Enumerable.Empty<ProjectModel>();
+    private bool isLoading = true;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+
+    private string searchTerm = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadProjectsAsync();
+
+    private async Task LoadProjectsAsync()
+    {
+        isLoading = true;
+        projectsList = await Http.GetFromJsonAsync<ProjectModel[]>($"{WebApiAddress}/api/project/pending");
+        filteredData = projectsList;
+        isLoading = false;
+    }
+
+    private Func<ProjectModel, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return true;
+
+        if (x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.Status.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private void NavigateToDetails(int projectId)
+    {
+        NavigationManager.NavigateTo($"/{UniqueId}/project/details/{projectId}");
+    }
+
+    private void NavigateToDonation(int projectId)
+    {
+        NavigationManager.NavigateTo($"/{UniqueId}/project/{projectId}/donate");
+    }
+}

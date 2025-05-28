@@ -1,0 +1,295 @@
+﻿@page "/admin/contact/details/{userId}"
+@page "/admin/contact/details/{userId}/update"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@headerTitle</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">@headerTitle</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@userDetailsModel" @ref="form">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="First Name" @bind-Value="userDetailsModel.FirstName" Disabled="@(!isEditMode)" Required="true" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Last Name" @bind-Value="userDetailsModel.LastName" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Email" @bind-Value="userDetailsModel.Email" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Phone Number" @bind-Value="userDetailsModel.PhoneNumber" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="WhatsApp Number" @bind-Value="userDetailsModel.WhatsAppNumber" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Street" @bind-Value="userDetailsModel.Street" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="City" @bind-Value="userDetailsModel.City" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudAutocomplete T="string" Label="Country" MaxItems="null" Immediate @bind-Value="userDetailsModel.Country"
+                            SearchFunc="@SearchCountries" Dense TextChanged="OnCountrySelected"
+                            ResetValueOnEmptyText SelectValueOnTab Clearable Disabled="@(!isEditMode)"/>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Province" @bind-Value="userDetailsModel.Province" Dense Clearable Disabled="@(!isEditMode)">
+                                @foreach (var province in provinces)
+                                {
+                                    <MudSelectItem T="string" Value="@province">@province</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Postal Code" @bind-Value="userDetailsModel.PostalCode" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Contact Type" @bind-Value="userDetailsModel.UserType" Disabled="@(!isEditMode)">
+                                @foreach (var userType in userTypes)
+                                {
+                                    <MudSelectItem T="string" Value="@userType.Name">@userType.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        @if (!isEditMode)
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudSelect T="string" Label="Group" MultiSelection="true" @bind-SelectedValues="userDetailsModel.AssignedGroups" Disabled />
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12" md="6" Class="mt-2">
+                                <MudTextField T="string" Placeholder="Search/Select Groups"
+                                Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                ValueChanged="@(s=>FilterData(s))" Immediate />
+                                <MudFlexBreak />
+                                <MudList T="int" @bind-SelectedValues="userDetailsModel.GroupIds" SelectionMode="SelectionMode.MultiSelection"
+                                         CheckBoxColor="Color.Success" Dense Style="height:200px;overflow-y:scroll;margin-left:-20px">
+                                    @foreach (var item in filteredData)
+                                    {
+                                        <MudListItem Text=@(item.Name) Value="item.Id"></MudListItem>
+                                    }
+                                </MudList>
+                            </MudItem>
+                        }
+                        <MudItem xs="12" md="6">
+                            @if (userDetailsModel.GroupIds != null && userDetailsModel.GroupIds.Any())
+                            {
+                                @foreach (var item in userDetailsModel.GroupIds)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Style="margin: 4px;" Disabled="@(!isEditMode)">
+                                        @GetGroupName(item)
+                                    </MudChip>
+                                }
+                            }
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudAutocomplete T="string" Label="Introduced By" MaxItems="null" Immediate Disabled="@(!isEditMode)"
+                            SearchFunc="@SearchUsers" Dense @bind-Value="userDetailsModel.IntroducedBy"
+                            ResetValueOnEmptyText SelectValueOnTab Clearable TextChanged="OnTextChanged" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField Label="Member Since" Disabled @bind-Value="userDetailsModel.CreatedAt" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        @if (!isEditMode)
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudTextField T="string" Label="User Guid" @bind-Value="userDetailsModel.Guid" Disabled />
+                            </MudItem>
+                            <MudFlexBreak />
+                        }
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Description" @bind-Value="userDetailsModel.Description" Disabled="@(!isEditMode)" Lines="1" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSwitch Label="Is Active" Color="Color.Success" @bind-Value=@(userDetailsModel.IsActive) Disabled="@(!isEditMode)" />
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        @if (isEditMode)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@isUpdating">Cancel</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isUpdating" StartIcon="@Icons.Material.Filled.Edit" OnClick="UpdateContact">Update</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" StartIcon="@Icons.Material.Filled.ArrowBack">Go Back</MudButton>
+                        }
+                    </MudStack>
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string userId { get; set; }
+
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<UserType> userTypes = Enumerable.Empty<UserType>();
+    private bool isEditMode = false;
+    private string headerTitle = "Contact Details";
+    public UserDetailsModel userDetailsModel = new UserDetailsModel();
+    private string errorMessage = null;
+    private bool isUpdating = false;
+    private MudForm form;
+    private string[] countries;
+    private bool isLoading = false;
+    private List<string> provinces = new();
+    private string[] introducedByList;
+
+    private string searchTerm = string.Empty;
+    private IEnumerable<GroupModel> groupList = Enumerable.Empty<GroupModel>();
+    private IEnumerable<GroupModel> filteredData = Enumerable.Empty<GroupModel>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isEditMode = NavigationManager.Uri.EndsWith("/update", StringComparison.OrdinalIgnoreCase);
+
+        headerTitle = isEditMode ? "Update Contact Details" : "Contact Details";
+
+        await LoadUserDetailsAsync();
+        await LoadLookupsAsync();
+    }
+
+    private async Task LoadUserDetailsAsync()
+    {
+        isLoading = true;
+        userDetailsModel = await Http.GetFromJsonAsync<UserDetailsModel>($"{WebApiAddress}/api/user/profile/{userId}");
+        if (isEditMode && !string.IsNullOrEmpty(userDetailsModel.Country))
+            provinces = await Http.GetFromJsonAsync<List<string>>($"{WebApiAddress}/api/lookup/{userDetailsModel.Country}/provinces");
+        introducedByList = await Http.GetFromJsonAsync<string[]>($"{WebApiAddress}/api/user/list");
+        groupList = await Http.GetFromJsonAsync<GroupModel[]>($"{WebApiAddress}/api/group");
+        filteredData = groupList;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = groupList
+            .Where(x => x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetGroupName(int id)
+    {
+        return groupList.FirstOrDefault(g => g.Id == id)?.Name ?? "Unknown";
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        userTypes = lookupData.UserTypes;
+        countries = lookupData.Countries.ToArray();
+    }
+
+    private async Task UpdateContact()
+    {
+        await form.Validate();
+        if (form.IsValid)
+        {
+            try
+            {
+                isUpdating = true;
+                var response = await Http.PutAsJsonAsync($"{WebApiAddress}/api/user/{userId}", userDetailsModel);
+                isUpdating = false;
+                if (response.IsSuccessStatusCode)
+                {
+                    Snackbar.Add("Contact updated successfully.", Severity.Success);
+                    NavigateToContacts();
+                }
+                else
+                {
+                    errorMessage = "Error in user updation.";
+                    Snackbar.Add("Error updating contact.", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "An error occurred: " + ex.Message;
+                Snackbar.Add("An error occurred while updating contact.", Severity.Error);
+            }
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToContacts();
+    }
+
+    private void NavigateToContacts()
+    {
+        NavigationManager.NavigateTo("/admin/contact");
+    }
+
+    private async Task<IEnumerable<string>> SearchCountries(string value, CancellationToken token)
+    {
+        await Task.Delay(5);
+
+        if (string.IsNullOrEmpty(value))
+            return countries;
+
+        return countries.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task OnCountrySelected(string selectedCountry)
+    {
+        if (!string.IsNullOrEmpty(selectedCountry))
+        {
+            provinces = await Http.GetFromJsonAsync<List<string>>($"{WebApiAddress}/api/lookup/{selectedCountry}/provinces");
+        }
+    }
+
+    private async Task<IEnumerable<string>> SearchUsers(string value, CancellationToken token)
+    {
+        await Task.Delay(5);
+
+        if (string.IsNullOrEmpty(value))
+            return introducedByList;
+
+        return introducedByList.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private void OnTextChanged(string value)
+    {
+        userDetailsModel.IntroducedBy = value;
+    }
+}

@@ -1,0 +1,243 @@
+﻿@page "/admin/contact/create"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Contact</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Create Contact</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@createRequest">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="First Name" @bind-Value="createRequest.FirstName" Required="true" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Last Name" @bind-Value="createRequest.LastName" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Email" @bind-Value="createRequest.Email" Validation="@(new EmailAddressAttribute() {ErrorMessage = "The email address is invalid"})" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Phone Number" @bind-Value="createRequest.PhoneNumber" Validation="@(new RegularExpressionAttribute(@"^\+?[1-9]\d{1,14}$") { ErrorMessage = "Invalid phone number format" })" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="WhatsApp Number" @bind-Value="createRequest.WhatsAppNumber" Validation="@(new RegularExpressionAttribute(@"^\+?[1-9]\d{1,14}$") { ErrorMessage = "Invalid phone number format" })" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Street" @bind-Value="createRequest.Street" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="City" @bind-Value="createRequest.City" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudAutocomplete T="string" Label="Country" MaxItems="null" Immediate 
+                            SearchFunc="@SearchCountries" Dense ValueChanged="OnCountrySelected"
+                            ResetValueOnEmptyText SelectValueOnTab Clearable />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Province" @bind-Value="createRequest.Province" Dense Clearable>
+                                @foreach (var province in provinces)
+                                {
+                                    <MudSelectItem T="string" Value="@province">@province</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Postal Code" @bind-Value="createRequest.PostalCode" Validation="@(new RegularExpressionAttribute(@"^[A-Za-z0-9\s\-]+$") { ErrorMessage = "Invalid postal code format (XXX XXX)" })" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" Label="Contact Type" @bind-Value="createRequest.UserType">
+                                @foreach (var userType in userTypes)
+                                {
+                                    <MudSelectItem T="string" Value="@userType.Name">@userType.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" Class="mt-2">
+                            <MudTextField T="string" Placeholder="Search/Select Groups"
+                            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                            ValueChanged="@(s=>FilterData(s))" Immediate />
+                            <MudFlexBreak />
+                            <MudList T="int" @bind-SelectedValues="selectedGroupIds" SelectionMode="SelectionMode.MultiSelection"
+                                     CheckBoxColor="Color.Success" Dense Style="height:200px;overflow-y:scroll;margin-left:-20px">
+                                @foreach (var item in filteredData)
+                                {
+                                    <MudListItem Text=@(item.Name) Value="item.Id"></MudListItem>
+                                }
+                            </MudList>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            @if (selectedGroupIds != null && selectedGroupIds.Any())
+                            {
+                                @foreach (var item in selectedGroupIds)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Style="margin: 4px;">
+                                        @GetGroupName(item)
+                                    </MudChip>
+                                }
+                            }
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudAutocomplete T="string" Label="Introduced By" MaxItems="null" Immediate
+                            SearchFunc="@SearchUsers" Dense @bind-Value="createRequest.IntroducedBy"
+                            ResetValueOnEmptyText SelectValueOnTab Clearable TextChanged="OnTextChanged"/>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Description" @bind-Value="createRequest.Description" Lines="3" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSwitch Color="Color.Success" @bind-Value=@(createRequest.IsActive) Label="Is Active" />
+                        </MudItem>
+
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isCreating" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="HandleUserCreate" Disabled="@isCreating" StartIcon="@Icons.Material.Filled.PersonAdd">Create</MudButton>
+                    </MudStack>
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private CreateUserRequest createRequest = new();
+    private bool isCreating = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<UserType> userTypes = Enumerable.Empty<UserType>();
+    private string[] countries;
+    private bool isLoading = false;
+    private List<string> provinces = new();
+    private string[] introducedByList;
+
+    private string searchTerm = string.Empty;
+    private IEnumerable<GroupModel> groupList = Enumerable.Empty<GroupModel>();
+    private IEnumerable<GroupModel> filteredData = Enumerable.Empty<GroupModel>();
+    private IReadOnlyCollection<int> selectedGroupIds = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookupsAsync();
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        isLoading = true;
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        userTypes = lookupData.UserTypes;
+        countries = lookupData.Countries.ToArray();
+        introducedByList = await Http.GetFromJsonAsync<string[]>($"{WebApiAddress}/api/user/list");
+        groupList = await Http.GetFromJsonAsync<GroupModel[]>($"{WebApiAddress}/api/group");
+        filteredData = groupList;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = groupList
+            .Where(x => x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetGroupName(int id)
+    {
+        return groupList.FirstOrDefault(g => g.Id == id)?.Name ?? "Unknown";
+    }
+
+    private async Task HandleUserCreate()
+    {
+        try
+        {
+            isCreating = true;
+            createRequest.GroupList = selectedGroupIds;
+            var response = await Http.PostAsJsonAsync($"{WebApiAddress}/api/user", createRequest);
+            isCreating = false;
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Contact created successfully.", Severity.Success);
+                NavigateToContacts();
+            }
+            else
+                Snackbar.Add("Error creating contact.", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToContacts();
+    }
+
+    private void NavigateToContacts()
+    {
+        NavigationManager.NavigateTo("/admin/contact");
+    }
+
+    private async Task<IEnumerable<string>> SearchCountries(string value, CancellationToken token)
+    {
+        await Task.Delay(5);
+
+        if (string.IsNullOrEmpty(value))
+            return countries;
+
+        return countries.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task OnCountrySelected(string selectedCountry)
+    {
+        if (!string.IsNullOrEmpty(selectedCountry))
+        {
+            createRequest.Country = selectedCountry;
+            provinces = await Http.GetFromJsonAsync<List<string>>($"{WebApiAddress}/api/lookup/{selectedCountry}/provinces");
+        }
+    }
+
+    private async Task<IEnumerable<string>> SearchUsers(string value, CancellationToken token)
+    {
+        await Task.Delay(5);
+
+        if (string.IsNullOrEmpty(value))
+            return introducedByList;
+
+        return introducedByList.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private void OnTextChanged(string value)
+    {
+        createRequest.IntroducedBy = value;
+    }
+}

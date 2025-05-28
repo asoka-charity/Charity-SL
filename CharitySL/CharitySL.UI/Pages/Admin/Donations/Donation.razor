@@ -1,0 +1,201 @@
+﻿@page "/admin/donation"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+
+<PageTitle>Donation Management</PageTitle>
+
+<MudText Typo="Typo.h5" Style="text-align:center">Donation Management</MudText>
+<MudGrid Class="pa-0 mb-2">
+    <MudItem xs="12" md="5">
+        <MudSelect T="ProjectModel" Dense @bind-Value="selectedProject" ToStringFunc="@converter"
+                   SelectedValuesChanged="OnProjectSelected" Immediate Label="Project">
+            @foreach (var project in projectsList)
+            {
+                <MudSelectItem Value="@project">@project.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" md="5" Class="mt-4">
+        <MudTextField @bind-Value="searchTerm" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" OnInput="OnSearchChanged"></MudTextField>
+    </MudItem>
+    <MudSpacer />
+    <MudItem xs="6" md="2" Class="mt-2">
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.AttachMoney" OnClick="OnAddClick">Add Donation</MudButton>
+    </MudItem>
+</MudGrid>
+@if (isLoading)
+{
+    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+}
+else
+{
+    <MudDataGrid T="DonationModel" Items="@filteredContributions" QuickFilter="@_quickFilter" Elevation="5" Class="pa-2 mb-4"
+                 Loading="@isLoading" LoadingProgressColor="Color.Success" Dense Style="margin-top:35px; margin-bottom:15px; background: #d3d3d34f">
+        <Columns>
+            <PropertyColumn Property="x => x.DonatedUserName" Title="Donated User" CellStyle="text-align:left; width: 200px" />
+            <PropertyColumn Property="x => x.DonatedAmount" Title="Amount" Format="C2" CellStyle="text-align:center; width: 200px" />
+            <PropertyColumn Property="x => x.ActualAmount" Title="Actual Amount" Format="C2" CellStyle="text-align:center; width: 200px" />
+            @* <PropertyColumn Property="x => x.PaidDate.Value.ToShortDateString()" Title="Pay on or before" CellStyle="text-align:center" HeaderClass="text-align:center" /> *@
+            <PropertyColumn Property="x => x.DonationMethod" Title="Payment Method" CellStyle="width: 230px" />
+            <TemplateColumn Title="Payment Status">
+                <CellTemplate Context="status">
+                    <MudChip T="string" Style="align-content:center; width:100px; height:28px" Color="@GetStatusColor(status.Item.DonationStatus)">@status.Item.DonationStatus</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" CellStyle="width: 150px">
+                <CellTemplate Context="Actions">
+                    <MudButtonGroup Style="margin:-5px">
+                        <MudTooltip Text="View"><MudIconButton Color="Color.Warning" Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" OnClick="() => NavigateToDetails(Actions.Item.Id, false)" /></MudTooltip>
+                        @if (Actions.Item.DonationStatus != "Completed")
+                        {
+                            <MudTooltip Text="Update"><MudIconButton Color="Color.Dark" Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => NavigateToDetails(Actions.Item.Id, true)" /></MudTooltip>
+                            <MudTooltip Text="Delete"><MudIconButton Color="Color.Error" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => OpenDeleteDialog(Actions.Item.Id)" /></MudTooltip>
+                        }
+                    </MudButtonGroup>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="DonationModel" PageSizeOptions=@(new int[] { 10, 20, 30, 40, 50, 100 }) />
+        </PagerContent>
+    </MudDataGrid>
+    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Medium" StartIcon="@Icons.Material.Filled.ImportExport" Disabled="@(filteredContributions == null)">Export</MudButton>
+}
+
+@code {
+    private IEnumerable<DonationModel> contributions = Enumerable.Empty<DonationModel>();
+    private IEnumerable<DonationModel> filteredContributions = Enumerable.Empty<DonationModel>();
+    private bool isLoading = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private string searchTerm = string.Empty;
+    private IEnumerable<ProjectModel> projectsList = Enumerable.Empty<ProjectModel>();
+    private ProjectModel selectedProject = new ProjectModel ();
+    Func<ProjectModel, string> converter = p => p?.Name;
+    private IDialogReference deleteDialogReference;
+    private bool showDeleteModal = false;
+    private int donationIdToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        projectsList = await Http.GetFromJsonAsync<ProjectModel[]>($"{WebApiAddress}/api/project");
+        if (projectsList.Any())
+        {
+            selectedProject = projectsList.First();
+            await LoadContributionsAsync(selectedProject.Id);
+        }
+        isLoading = false;
+    }
+
+    private async Task OnProjectSelected()
+    {
+        await LoadContributionsAsync(selectedProject.Id);
+    }
+
+    private async Task LoadContributionsAsync(int projectId)
+    {
+        try
+        {
+            isLoading = true;
+            contributions = await Http.GetFromJsonAsync<IEnumerable<DonationModel>>($"{WebApiAddress}/api/projectcontribution/{projectId}");
+            FilterContributions();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading contributions: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchTerm = e.Value.ToString();
+        FilterContributions();
+    }
+
+    private void FilterContributions()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredContributions = contributions;
+        }
+        else
+        {
+            filteredContributions = contributions.Where(x => x.DonatedUserName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private Func<DonationModel, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return true;
+
+        if (x.DonatedUserName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Pending" => Color.Warning,
+            "Completed" => Color.Success,
+            _ => Color.Default
+        };
+    }
+
+    private void OnAddClick()
+    {
+        NavigationManager.NavigateTo("/admin/add-donation");
+    }
+
+    private void NavigateToDetails(int id, bool isEditMode)
+    {
+        if (isEditMode)
+            NavigationManager.NavigateTo($"/admin/donation/details/{id}/update");
+        else
+            NavigationManager.NavigateTo($"/admin/donation/details/{id}");
+    }
+
+    private async Task DeleteDonationAsync()
+    {
+        var response = await Http.DeleteAsync($"{WebApiAddress}/api/projectcontribution/{donationIdToDelete}/details");
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Donation deleted successfully.", Severity.Success);
+            deleteDialogReference?.Close();
+            await LoadContributionsAsync(selectedProject.Id);
+        }
+        else
+        {
+            Snackbar.Add("Error deleting donation.", Severity.Error);
+        }
+    }
+
+    private void OpenDeleteDialog(int id)
+    {
+        donationIdToDelete = id;
+
+        var parameters = new DialogParameters
+        {
+            { "ContentText", "Are you sure you want to delete this donation?" },
+            { "IsDelete", true },
+            { "DeleteBtnClick", EventCallback.Factory.Create(this, DeleteDonationAsync) },
+            { "Color", Color.Error }
+        };
+
+        deleteDialogReference = DialogService.Show<AlertDialog>("Delete", parameters);
+    }
+
+    private void CancelDelete() => showDeleteModal = false;
+}

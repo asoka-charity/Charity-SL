@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #333333;
+        }
+        p {
+            color: #666666;
+            font-size: 16px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin-top: 20px;
+            font-size: 18px;
+            color: #ffffff;
+            background-color: #007bff;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #999999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Continue to Charity SL</h1>
+        <p>Dear {RecipientName},</p>
+        <p>Thank you for joining us. Please click the link below to continue to our website.</p>
+        <a href='{VerificationLink}' target="_blank" class="button">Continue</a>
+        <p>If you did not sign up, please ignore this email.</p>
+        <div class="footer">&copy; 2025 Charity SL. All rights reserved.</div>
+    </div>
+</body>
+</html>

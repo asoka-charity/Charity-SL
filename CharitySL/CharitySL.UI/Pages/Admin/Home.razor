@@ -1,0 +1,46 @@
+﻿@page "/admin/home"
+
+@inject NavigationManager NavigationManager
+
+<PageTitle>Home</PageTitle>
+
+<!-- Hero Section -->
+<AuthorizeView>
+    <Authorized>
+<div class="hero-section d-flex align-items-center">
+    <div class="hero-content">
+        <h1 class="hero-title">Charity is an Act of <span class="highlight">A Soft Heart!</span></h1>
+        <p class="hero-subtitle">Learn how we bring communities together to make a difference.</p>
+    </div>
+    <MudImage Src="./assets/img/img8.jpg" Fluid Alt="Helping Hands" Class="hero-image" />
+</div>
+    </Authorized>
+</AuthorizeView>
+
+<style>
+    .hero-section {
+        background: #004b23e6;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        padding: 4rem;
+        border-radius: 8px;
+    }
+    .hero-title { font-size: 2.5rem; font-weight: bold; }
+    .highlight { color: #f4a261; }
+    .hero-buttons { margin-top: 1rem; gap: 15px }
+    .hero-image { border-radius: 8px; max-width: 100%; }
+</style>
+
+@code {
+
+    private async Task OnOurProjectsBtnClick()
+	{
+        NavigationManager.NavigateTo("/projects");
+	}
+
+	private async Task OnAboutBtnClick()
+	{
+		NavigationManager.NavigateTo("/about-us");
+	}
+}

@@ -1,0 +1,64 @@
+﻿@page "/login"
+@layout LoginLayout
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider provider
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<MudGrid Justify="Justify.Center" Class="min-h-screen login-container mt-6">
+    <MudItem xs="11" sm="8" md="5" lg="4">
+        <MudPaper Class="pa-4 animate-fade-in" Elevation="6" Style="border-radius:8px;background: #d3d3d34f">
+            <MudStack Spacing="2">
+                <MudImage Src="./assets/img/img5.jpg" Alt="Login" Style="width:100%; height:auto; border-radius:10px;" />
+
+                <EditForm Model="@loginModel">
+                    <DataAnnotationsValidator />
+
+                    <MudText Typo="Typo.h5" Class="text-primary text-center mt-4 mb-2">Admin Login</MudText>
+
+                    <MudTextField Label="Email" Margin="Margin.Dense"
+                                  @bind-Value="loginModel.Email" For="@(() => loginModel.Email)"
+                                  FullWidth="true" Required="true" Variant="Variant.Outlined" />
+
+                    <MudTextField Label="Password" Margin="Margin.Dense"
+                                  @bind-Value="loginModel.Password" For="@(() => loginModel.Password)"
+                                  InputType="InputType.Password" FullWidth="true" Required="true" Variant="Variant.Outlined" />
+
+                    <MudLink Href="#" Class="d-block mt-2 text-right text-secondary" Style="font-size:0.875rem">Forgot Password?</MudLink>
+
+                    <MudButton ButtonType="ButtonType.Submit" @onclick="HandleLogin"
+                               Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login"
+                               Class="mt-4" FullWidth="true" Disabled="@isLoading" Style="background: linear-gradient(90deg, #0a350cd4 0%, #6ba26dfa 100%)">
+                        Log In
+                    </MudButton>
+                </EditForm>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    public string error = "";
+    public LoginModel loginModel = new LoginModel();
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        var authStateProvider = (CustomAuthenticationStateProvider)provider;
+
+        var formResult = await authStateProvider.Login(loginModel.Email, loginModel.Password);
+        if (formResult.Succeeded)
+        {
+            isLoading = false;
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            isLoading = false;
+            error = formResult.Errors[0];
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+}

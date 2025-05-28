@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "CharitySL.API\\CharitySL.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "CharitySL.UI\\CharitySL.UI.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

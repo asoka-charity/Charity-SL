@@ -1,0 +1,114 @@
+﻿@page "/admin/send-email/groups"
+
+@using System.Text.Json.Nodes
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject IDialogService DialogService
+
+<PageTitle>Groups Email</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Send Email To Groups</MudText>
+        <MudPaper Class="pa-2" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            @if (isLoading)
+            {
+                <MudProgressLinear Color="Color.Success" Striped="true" Class="my-7" />
+            }
+            else
+            {
+                <MudGrid Spacing="5">
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="GroupModel" Dense @bind-Value="selectedGroup" ToStringFunc="@converter"
+                        SelectedValuesChanged="OnGroupSelected" Immediate Label="Group">
+                            @foreach (var group in groupList)
+                            {
+                                <MudSelectItem Value="@group">@group.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudFlexBreak />
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="AssignedUserModel" MultiSelection="true" SelectAll="true" ToStringFunc="@userConverter"
+                        SelectAllText="Select all contacts"
+                        Label="Assigned Contacts"
+                        HelperText="@value" @bind-Values="value" @bind-SelectedValues="options">
+                            @foreach (var user in assignedUserList)
+                            {
+                                <MudSelectItem Value="@user">@user.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        @if (options != null && options.Any())
+                        {
+                            @foreach (var item in options)
+                            {
+                                <MudChip T="string" Color="Color.Success" Style="margin: 4px;">
+                                    @item.Email
+                                </MudChip>
+                            }
+                        }
+                    </MudItem>
+                </MudGrid>
+            }
+            <MudDivider Class="my-4" />
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-4" OnClick="OpenEmailModal" StartIcon="@Icons.Material.Filled.ArrowForward">Continue</MudButton>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private string searchTerm = string.Empty;
+    private IReadOnlyCollection<string> selectedEmails = [];
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private bool isLoading = false;
+
+    private IEnumerable<GroupModel> groupList = Enumerable.Empty<GroupModel>();
+    private GroupModel selectedGroup = new GroupModel();
+    Func<GroupModel, string> converter = p => p?.Name;
+    private int groupId;
+
+    private IEnumerable<AssignedUserModel> assignedUserList = Enumerable.Empty<AssignedUserModel>();
+    Func<AssignedUserModel, string> userConverter = u => u?.Name;
+
+    private string value { get; set; } = "";
+    private IEnumerable<AssignedUserModel> options;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        groupList = await Http.GetFromJsonAsync<GroupModel[]>($"{WebApiAddress}/api/group");
+        if (groupList.Any())
+        {
+            selectedGroup = groupList.First();
+            groupId = selectedGroup.Id;
+            await LoadAssignedUsers();
+        }
+        isLoading = false;
+    }
+
+    private async Task OnGroupSelected()
+    {
+        groupId = selectedGroup.Id;
+        options = Enumerable.Empty<AssignedUserModel>(); // Clear selected users
+        selectedEmails = []; // Clear selected emails
+        await LoadAssignedUsers();
+    }
+
+    private async Task LoadAssignedUsers()
+    {
+        assignedUserList = await Http.GetFromJsonAsync<AssignedUserModel[]>($"{WebApiAddress}/api/group/{groupId}/users");
+    }
+
+    private Task OpenEmailModal()
+    {
+        selectedEmails = options.Select(u => u.Email).ToList();
+
+        var parameters = new DialogParameters<EmailDialog> { { x => x.selectedEmails, selectedEmails } };
+
+        return DialogService.ShowAsync<EmailDialog>("", parameters);
+    }
+}
+

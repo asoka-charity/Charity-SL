@@ -1,0 +1,193 @@
+﻿@page "/admin/donation/details/{id:int}"
+@page "/admin/donation/details/{id:int}/update"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@headerTitle</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">@headerTitle</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <MudForm Model="@donationDetailModel">
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="UserModel" Dense @bind-Value="selectedUser" ToStringFunc="@converter"
+                            Immediate Label="Contact" Disabled></MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="ProjectModel" Dense @bind-Value="selectedProject" ToStringFunc="@projectConverter"
+                             Immediate Label="Project" Disabled></MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudNumericField @bind-Value="donationDetailModel.DonatedAmount" Label="Amount" Step=".2M" Required Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        @if(isEditMode) 
+                        {
+                            <MudFlexBreak />
+                            <MudItem xs="12" md="6" lg="6">
+                                <MudNumericField @bind-Value="donationDetailModel.ActualAmount" Label="Actual Amount" Step=".2M" Required />
+                            </MudItem>
+                        }
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudSelect T="string" Label="Payment Status" @bind-Value="donationDetailModel.DonationStatus" Disabled="@(!isEditMode)" Dense>
+                                @foreach (var paymentStatus in paymentStatuses)
+                                {
+                                    <MudSelectItem T="string" Value="@paymentStatus.Status">@paymentStatus.Status</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudDatePicker Label="Pay on or before" @bind-Date="donationDetailModel.PaidDate" MinDate="DateTime.Today" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudSelect T="string" Label="Payment Method" @bind-Value="donationDetailModel.DonationMethod" Dense Disabled="@(!isEditMode)">
+                                @foreach (var paymentMethod in paymentMethods)
+                                {
+                                    <MudSelectItem T="string" Value="@paymentMethod.MethodName">@paymentMethod.MethodName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" lg="6">
+                            <MudTextField T="string" Label="Payment Reference" @bind-Value="donationDetailModel.DonationReference" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        @if (!isEditMode)
+                        {
+                            <MudItem xs="12">
+                                <MudTextField T="string" Label="Additional Note" @bind-Value="donationDetailModel.DonationNote" Lines="1" Disabled />
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12">
+                            <MudTextField T="string" Label="Additional Note" @bind-Value="donationDetailModel.DonationNote" Lines="5" Disabled="@(!isEditMode)" />
+                        </MudItem>
+                        }
+                        <MudFlexBreak />
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Created On" @bind-Value="donationDetailModel.DonatedOn" Disabled />
+                        </MudItem>
+                    </MudGrid>
+                    <MudDivider Class="my-4" />
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        @if (isEditMode)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" Disabled="@isSubmitting" OnClick="Cancel" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@isSubmitting" OnClick="OnUpdateClick" StartIcon="@Icons.Material.Filled.Edit">Update</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" StartIcon="@Icons.Material.Filled.ArrowBack">Go Back</MudButton>
+                        }
+                    </MudStack>
+
+                    @if (errorMessage != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@errorMessage</MudAlert>
+                    }
+                }
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+    private bool isEditMode = false;
+    private string headerTitle = "Group Details";
+
+    private DonationDetailModel donationDetailModel = new();
+    private string errorMessage = null;
+    private bool isSubmitting = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<PaymentMethod> paymentMethods = Enumerable.Empty<PaymentMethod>();
+    private IEnumerable<PaymentStatus> paymentStatuses = Enumerable.Empty<PaymentStatus>();
+    private bool isLoading = false;
+
+    private UserModel selectedUser = new UserModel();
+    Func<UserModel, string> converter = p => p.FirstName + " " + p?.LastName;
+
+    private ProjectModel selectedProject = new ProjectModel();
+    Func<ProjectModel, string> projectConverter = p => p?.Name;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        isEditMode = NavigationManager.Uri.EndsWith("/update", StringComparison.OrdinalIgnoreCase);
+
+        headerTitle = isEditMode ? "Update Donation Details" : "Donation Details";
+
+        donationDetailModel = await Http.GetFromJsonAsync<DonationDetailModel>($"{WebApiAddress}/api/projectcontribution/{id}/details");
+        selectedUser = donationDetailModel.DonatedUser;
+        selectedProject = donationDetailModel.DonatedProject;
+
+        await LoadLookupsAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        var lookupData = await Http.GetFromJsonAsync<LookupData>("api/lookup");
+        paymentMethods = lookupData.PaymentMethods;
+        paymentStatuses = lookupData.PaymentStatuses;
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/admin/donation");
+    }
+
+    private async Task OnUpdateClick()
+    {
+        try
+        {
+            isSubmitting = true;
+            var response = await Http.PutAsJsonAsync($"{WebApiAddress}/api/projectcontribution/{id}/details", donationDetailModel);
+            isSubmitting = false;
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Donation updated successfully.", Severity.Success);
+                NavigationManager.NavigateTo("/admin/donation");
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadAsStringAsync();
+                var jsonResponse = JsonNode.Parse(errorResponse);
+                if (jsonResponse != null && jsonResponse["errors"] != null)
+                {
+                    var errors = jsonResponse["errors"].AsObject();
+                    var formattedErrors = string.Join("\n", errors.SelectMany(e => e.Value.AsArray().Select(msg => $"{msg}")));
+
+                    foreach (var error in errors)
+                    {
+                        foreach (var message in error.Value.AsArray())
+                        {
+                            Snackbar.Add($"{message.ToString()}", Severity.Error);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add("An error occurred while updating donation.", Severity.Error);
+        }
+    }
+}

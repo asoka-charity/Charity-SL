@@ -1,0 +1,147 @@
+﻿@page "/admin/group/create"
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Group</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Create Group</MudText>
+        <MudPaper Class="pa-2 mb-4" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            <EditForm Model="@createRequest" Context="groupForm">
+                <DataAnnotationsValidator />
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Success" Indeterminate="true" Class="my-7" />
+                }
+                else
+                {
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" Label="Group Name"
+                            @bind-Value="createRequest.Name" Required For="@(() => createRequest.Name)" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" Style="padding-top: 0px;">
+                            <MudTextField T="string" Label="Description"
+                            @bind-Value="createRequest.Description" Lines="3" />
+                        </MudItem>
+                        <MudFlexBreak />
+                        <MudItem xs="12" md="6" Class="mt-2" Style="padding-top: 0px;">
+                            <MudTextField T="string" Placeholder="Search/Select to assign contacts"
+                            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                            ValueChanged="@(s=>FilterData(s))" Immediate />
+                            <MudFlexBreak />
+                            <MudList T="string" @bind-SelectedValues="selectedUsers" SelectionMode="SelectionMode.MultiSelection"
+                                     CheckBoxColor="Color.Success" Dense Style="height:255px;overflow-y:scroll;margin-left:-20px">
+                                @foreach (var item in filteredData)
+                                {
+                                    var itemName = $"{item.FirstName} {item.LastName}";
+                                    <MudListItem Text=@(itemName) Value="item.Id"></MudListItem>
+                                }
+                            </MudList>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Spacing="4" Row="true" AlignItems="AlignItems.Start">
+                        <MudButton Variant="Variant.Filled" Color="Color.Inherit" OnClick="Cancel" Disabled="@isCreating" StartIcon="@Icons.Material.Filled.Cancel">Cancel</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="HandleGroupCreate" Disabled="@isCreating" StartIcon="@Icons.Material.Filled.GroupAdd">Create</MudButton>
+                    </MudStack>
+                }
+            </EditForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private CreateGroupRequest createRequest = new();
+    private bool isCreating = false;
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private IEnumerable<UserModel> users = Enumerable.Empty<UserModel>();
+    private IEnumerable<UserModel> filteredData = Enumerable.Empty<UserModel>();
+    private bool isLoading = false;
+    private string searchTerm = string.Empty;
+    private IReadOnlyCollection<string> selectedUsers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        users = await Http.GetFromJsonAsync<UserModel[]>($"{WebApiAddress}/api/user");
+        filteredData = users;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = users
+            .Where(x => x.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(x.LastName) && x.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Email) && x.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.PhoneNumber) && x.PhoneNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.WhatsAppNumber) && x.WhatsAppNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetUserName(string id)
+    {
+        var user = users.FirstOrDefault(g => g.Id == id);
+        return user?.FirstName + " " + user?.LastName ?? "-";
+    }
+
+    private async Task HandleGroupCreate()
+    {
+        try
+        {
+            isCreating = true;
+            createRequest.AssignedUsers = selectedUsers;
+            var response = await Http.PostAsJsonAsync($"{WebApiAddress}/api/group", createRequest);
+            isCreating = false;
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Group created successfully.", Severity.Success);
+                NavigateToGroups();
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadAsStringAsync();
+                var jsonResponse = JsonNode.Parse(errorResponse);
+                if (jsonResponse != null && jsonResponse["errors"] != null)
+                {
+                    var errors = jsonResponse["errors"].AsObject();
+                    var formattedErrors = string.Join("\n", errors.SelectMany(e => e.Value.AsArray().Select(msg => $"{msg}")));
+
+                    foreach (var error in errors)
+                    {
+                        foreach (var message in error.Value.AsArray())
+                        {
+                            Snackbar.Add($"{message.ToString()}", Severity.Error);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = "An error occurred: " + ex.Message;
+            Snackbar.Add(errorMessage, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigateToGroups();
+    }
+
+    private void NavigateToGroups()
+    {
+        NavigationManager.NavigateTo("/admin/group");
+    }
+}

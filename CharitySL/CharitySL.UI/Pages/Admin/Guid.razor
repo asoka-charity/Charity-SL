@@ -1,0 +1,82 @@
+﻿@page "/admin/guid"
+@using System.Text.Json
+@using System.Text
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+
+<PageTitle>GUID Management</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">GUID Management</MudText>
+        <MudDataGrid T="UserModel" MultiSelection="true" Class="pa-0 mb-2 " Elevation="5" Items="@filteredData" Filterable="true" QuickFilter="@_quickFilter"
+                     Hideable="true" Loading="@isLoading" LoadingProgressColor="Color.Success" Dense Style="background: #d3d3d34f">
+            <ToolBarContent>
+                <MudItem xs="4" md="4">
+                    <MudTextField @bind-Value="searchTerm" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
+                                  AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </MudItem>
+            </ToolBarContent>
+            <Columns>
+                <SelectColumn T="UserModel" />
+                <PropertyColumn Property="x => x.FirstName" SortBy="new Func<UserModel, object>(x=>x.FirstName)" Title="First Name" />
+                <PropertyColumn Property="x => x.LastName" SortBy="new Func<UserModel, object>(x=>x.LastName)" Title="Last Name" />
+                <PropertyColumn Property="x => x.Email" SortBy="new Func<UserModel, object>(x=>x.Email)" Title="Email" />
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="UserModel" PageSizeOptions=@(new int[] { 10, 20, 30, 40, 50, 100}) />
+            </PagerContent>
+        </MudDataGrid>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-2" OnClick="UpdateGuid" StartIcon="@Icons.Material.Filled.EditNote">Update GUID</MudButton>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+	private string guid;
+	private bool isUserIdUpdated = false;
+	private string WebApiAddress => Configuration["WebApiAddress"];
+    private string searchTerm = string.Empty;
+    private IEnumerable<UserModel> userList = Enumerable.Empty<UserModel>();
+    private IEnumerable<UserModel> filteredData = Enumerable.Empty<UserModel>();
+    private IReadOnlyCollection<string> selectedUsers = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userList = await Http.GetFromJsonAsync<UserModel[]>($"{WebApiAddress}/api/user");
+        filteredData = userList;
+        isLoading = false;
+    }
+
+    private Func<UserModel, bool> _quickFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return true;
+
+        if (x.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (x.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    private async Task UpdateGuid()
+	{
+		var userIds = new string[] { guid };
+		var content = new StringContent(JsonSerializer.Serialize(userIds), Encoding.UTF8, "application/json");
+
+		var response = await Http.PutAsync($"{WebApiAddress}/api/guid", content);
+		if (response.IsSuccessStatusCode)
+		{
+			isUserIdUpdated = true;
+			guid = string.Empty;
+			Console.WriteLine("User ID updated successfully");
+		}
+	}
+}

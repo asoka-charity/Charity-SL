@@ -1,0 +1,30 @@
+﻿# Visual Studio Files
+.vs/
+.vscode/
+
+# Build and Output Directories
+bin/
+obj/
+
+# User-specific Files
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+*.nuget.props
+*.nuget.targets
+
+# Logs
+*.log
+
+# Blazor Specific
+build/
+
+# Temporary Files
+*.tmp
+*.temp
+*.DS_Store
+Thumbs.db

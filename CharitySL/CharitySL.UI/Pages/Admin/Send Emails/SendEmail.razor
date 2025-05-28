@@ -1,0 +1,95 @@
+﻿@page "/admin/send-email"
+@using System.Text.Json.Nodes
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+@inject IDialogService DialogService
+
+<PageTitle>Send Email</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <MudText Typo="Typo.h5" Style="text-align:center">Send Email</MudText>
+        <MudPaper Class="pa-2" Elevation="5" Style="margin-top:5px; margin-bottom:5px; background: #d3d3d34f">
+            @if (userList == null || isLoading)
+            {
+                <MudProgressLinear Color="Color.Success" Striped="true" Class="my-7" />
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" Placeholder="Search Recipients" Adornment="Adornment.Start" Style="width:350px"
+                                      ValueChanged="@(s=>FilterData(s))" Immediate="true"
+                                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-2"></MudTextField>
+
+                        <MudList T="string" @bind-SelectedValues="selectedEmails" SelectionMode="SelectionMode.MultiSelection"
+                                 CheckBoxColor="Color.Success" Dense Style="height:400px;overflow-y:scroll;margin-left:-20px">
+                            @foreach (var item in filteredData)
+                            {
+                                var itemName = $"{item.FirstName} {item.LastName} - {item.Email}";
+                                <MudListItem Text=@(itemName) Value="item.Email"></MudListItem>
+                            }
+                        </MudList>
+                    </MudItem>
+                    <MudItem xs="12" md="6" >
+                        @if (selectedEmails != null && selectedEmails.Any())
+                        {
+                            @foreach (var item in selectedEmails)
+                            {
+                                <MudChip T="string" Color="Color.Success" Style="margin: 4px;">
+                                    @GetUserName(item)
+                                </MudChip>
+                            }
+                        }
+                    </MudItem>
+                </MudGrid>
+            }
+            <MudDivider Class="my-4" />
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-4" OnClick="OpenEmailModal" StartIcon="@Icons.Material.Filled.ArrowForward">Continue</MudButton>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private string searchTerm = string.Empty;
+    private IEnumerable<UserEmailModel> userList = Enumerable.Empty<UserEmailModel>();
+    private IEnumerable<UserEmailModel> filteredData = Enumerable.Empty<UserEmailModel>();
+    private IReadOnlyCollection<string> selectedEmails = [];
+    private string WebApiAddress => Configuration["WebApiAddress"];
+    private bool showEmailModal = false;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        userList = await Http.GetFromJsonAsync<UserEmailModel[]>($"{WebApiAddress}/api/email/users");
+        filteredData = userList;
+        isLoading = false;
+    }
+
+    private void FilterData(string e)
+    {
+        isLoading = true;
+        searchTerm = e;
+        filteredData = userList
+            .Where(x => x.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(x.LastName) && x.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(x.Email) && x.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        isLoading = false;
+    }
+
+    private string GetUserName(string email)
+    {
+        var user = userList.SingleOrDefault(g => g.Email == email);
+        return $"{user?.FirstName} {user?.LastName}" ?? "-";
+    }
+
+    private Task OpenEmailModal()
+    {
+        var parameters = new DialogParameters<EmailDialog> { { x => x.selectedEmails, selectedEmails } };
+
+        return DialogService.ShowAsync<EmailDialog>("", parameters);
+    }
+}
